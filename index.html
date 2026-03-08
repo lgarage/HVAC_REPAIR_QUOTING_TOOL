@@ -1,0 +1,2091 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dispatcher Portal | Twin Pillars Heating & Cooling</title>
+    
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
+    <style>
+        /* --- General Stylings --- */
+        body {
+            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            background-color: #f0f2f5;
+            color: #333;
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            display: flex; 
+        }
+        h1, h2, h3, h4 { margin-top: 0; color: #1e4b85; }
+        button { cursor: pointer; border-radius: 4px; font-weight: bold; font-family: inherit; }
+
+        /* Auto Uppercase */
+        input[type="text"]:not(#newRequoteNote):not(#customerSearch):not(#scIssueInput):not(#scNotesInput), 
+        textarea:not(#requoteNoteHistory):not(#scIssueInput):not(#scNotesInput) { text-transform: uppercase; }
+        #customerSearch { text-transform: uppercase; }
+
+        /* --- Sidebar Stylings --- */
+        .sidebar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            height: 100vh;
+            width: 240px;
+            background-color: #1e4b85; 
+            color: #fff;
+            box-shadow: 2px 0 10px rgba(0,0,0,0.15);
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+        }
+        .sidebar-logo {
+            padding: 20px;
+            text-align: center;
+            background-color: #fff;
+            border-bottom: 3px solid #c89b53; 
+        }
+        .sidebar-logo img { max-width: 160px; height: auto; }
+        .sidebar-menu { list-style: none; padding: 0; margin: 0; flex: 1; }
+        .sidebar-menu li { border-bottom: 1px solid rgba(255,255,255,0.05); }
+        .sidebar-menu a {
+            display: block; padding: 18px 20px; color: #ecf0f1; text-decoration: none;
+            font-size: 15px; font-weight: bold; transition: all 0.2s; cursor: pointer;
+        }
+        .sidebar-menu a:hover, .sidebar-menu a.active-tab {
+            background-color: #c89b53; color: #fff; padding-left: 25px; 
+        }
+        .sidebar-footer { padding: 20px; font-size: 12px; color: rgba(255,255,255,0.5); text-align: center; }
+
+        /* --- Main Content Area --- */
+        .main-content {
+            margin-left: 240px; padding: 30px; flex: 1; min-width: 0; height: 100vh; overflow-y: auto; scroll-behavior: smooth;
+        }
+
+        /* --- Form Containers --- */
+        .app-view { display: none; } 
+        .app-view.active { display: block; }
+        
+        .form-container {
+            background-color: #fff; padding: 25px; border-radius: 8px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1); max-width: 1400px; margin: 0 auto;
+            transition: box-shadow 0.4s ease; /* For highlight flash */
+        }
+        .tool-header { margin-bottom: 25px; padding-bottom: 15px; border-bottom: 2px solid #eaeaea; display:flex; justify-content:space-between; align-items:center;}
+        
+        .form-section { background-color: #fcfdfe; border: 1px solid #eaeaea; padding: 20px; margin-bottom: 25px; border-radius: 6px; }
+        .form-row { display: flex; gap: 20px; margin-bottom: 15px; flex-wrap: wrap; }
+        .input-group { display: flex; flex-direction: column; flex: 1; min-width: 200px; }
+        
+        input[type="text"], input[type="number"], input[type="date"], input[type="email"], select, textarea {
+            padding: 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; box-sizing: border-box; width: 100%; font-family: inherit;
+        }
+        input:focus, select:focus, textarea:focus { border-color: #c89b53; outline: none; }
+        label { font-size: 13px; font-weight: bold; margin-bottom: 5px; color: #555; }
+
+        /* --- Gen Button Layout --- */
+        .gen-wrapper { display: flex; gap: 5px; }
+        .gen-btn { background: #1e4b85; color: #fff; border: none; padding: 0 15px; }
+        .gen-btn:hover { background: #153661; }
+
+        /* --- Parts Entry Layout --- */
+        .parts-grid-layout { display: grid; grid-template-columns: 60px 1fr 110px 120px 110px 120px 40px; gap: 10px; align-items: center; }
+        .part-header-row { margin-bottom: 10px; }
+        .part-header-row label { margin: 0; }
+        .part-row { margin-bottom: 10px; }
+        .part-row input { width: 100%; }
+        .cost-wrapper { display: flex; align-items: center; gap: 5px; font-weight: bold; }
+
+        .add-part-btn { background-color: #3498db; color: #fff; border: none; padding: 10px 15px; margin-top: 10px; }
+        .remove-part-btn { background-color: #e74c3c; color: #fff; border: none; padding: 8px; width: 100%; }
+        
+        /* --- Action Buttons --- */
+        .action-bar { display: flex; flex-direction: column; gap: 10px; margin-top: 20px; }
+        .generate-btn { background-color: #3498db; color: #fff; border: none; padding: 15px; width: 100%; font-size: 1.2em; }
+        .generate-btn:hover { background-color: #2980b9; }
+
+        /* --- Floating Save Indicator --- */
+        #saveIndicator { 
+            position: fixed; bottom: 30px; right: 30px; background-color: #2ecc71; color: #fff; 
+            padding: 15px 25px; border-radius: 50px; font-weight: bold; font-size: 15px; 
+            box-shadow: 0 6px 15px rgba(0,0,0,0.2); z-index: 9999; pointer-events: none; 
+            transition: opacity 0.4s ease, transform 0.4s ease; opacity: 0; transform: translateY(20px); 
+        }
+        #saveIndicator.show { opacity: 1; transform: translateY(0); }
+
+        /* --- Database Area --- */
+        .database-section { max-width: 1400px; margin: 30px auto 0; background: #fff; padding: 25px; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+        .db-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+        .db-table th, .db-table td { padding: 12px; text-align: left; border-bottom: 1px solid #eaeaea; vertical-align: middle; }
+        .db-table th { background: #1e4b85; color: #fff; position: sticky; top: 0; z-index: 10;}
+        
+        .preview-btn { background: #8e44ad; color: #fff; border: none; padding: 6px 12px; font-size: 12px; width: 100%;}
+        .edit-btn { background: #3498db; color: #fff; border: none; padding: 6px 12px; font-size: 12px; margin-right: 5px;}
+        .delete-btn { background: #e74c3c; color: #fff; border: none; padding: 6px 12px; font-size: 12px; cursor: pointer;}
+        .delete-btn:hover { background: #c0392b; }
+
+        @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
+
+        /* --- COMMAND CENTER UI (Map Overlay) --- */
+        .dispatch-hero {
+            position: relative; width: 100%; height: 65vh; min-height: 550px; max-width: 1400px; 
+            margin: 0 auto 20px auto; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            background: #e5e5e5;
+        }
+        .dispatch-map-full { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; border: none; }
+        
+        /* Ultra Transparent Glassmorphism Overlay Panel - Resizable */
+        .dispatch-list-overlay {
+            position: absolute; top: 15px; left: 15px; width: 400px; height: calc(100% - 30px); z-index: 500;
+            background: rgba(255, 255, 255, 0.05); /* Extremely transparent base */
+            backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px); /* Barely there blur */
+            border: 1px solid rgba(255,255,255,0.2); border-radius: 8px; display: flex; flex-direction: column;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1); pointer-events: auto; /* Required for native resize */
+            resize: horizontal; overflow: hidden; min-width: 280px; max-width: 70%;
+        }
+        /* Inner container ignores pointer events where empty to let map clicks through */
+        .dispatch-list-overlay > * { pointer-events: auto; }
+        
+        .overlay-header {
+            background: rgba(30, 75, 133, 0.95); color: #fff; padding: 15px 20px; font-weight: bold; font-size: 16px;
+            display: flex; justify-content: space-between; align-items: center; border-radius: 8px; margin-bottom: 10px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.15); 
+        }
+        
+        .overlay-content { flex: 1; overflow-y: auto; padding: 0 5px 0 0; }
+        .overlay-content::-webkit-scrollbar { width: 6px; }
+        .overlay-content::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.2); border-radius: 4px; }
+        
+        /* Solid White Ticket Cards for Maximum Readability */
+        .glass-card {
+            background: #ffffff; border-radius: 8px; padding: 15px; margin-bottom: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15); border-left: 6px solid #ccc; cursor: grab; transition: all 0.15s ease;
+        }
+        .glass-card:active { cursor: grabbing; }
+        .glass-card:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(0,0,0,0.25); border-left-width: 8px; }
+        .glass-card.dragging { opacity: 0.5; box-shadow: 0 10px 25px rgba(0,0,0,0.3); transform: scale(1.02); z-index: 10; }
+        
+        .glass-card.priority-Emergency { border-left-color: #e74c3c; }
+        .glass-card.priority-Urgent { border-left-color: #f39c12; }
+        .glass-card.priority-Standard { border-left-color: #3498db; }
+        .glass-card.priority-Routine { border-left-color: #95a5a6; }
+        
+        .tc-title { font-weight: bold; color: #1e4b85; font-size: 15px; margin-bottom: 4px; display: flex; justify-content: space-between; align-items: center;}
+        .tc-loc { font-size: 12px; color: #555; margin-bottom: 8px; font-weight: bold;}
+        .tc-issue { font-size: 12px; color: #333; margin-bottom: 12px; background: #f4f6f8; padding: 8px; border-radius: 4px; border: 1px solid #eee; }
+        .tc-footer { display: flex; justify-content: space-between; align-items: center; }
+
+        /* Full Width Schedule Panel */
+        .dispatch-schedule-full { max-width: 1400px; margin: 0 auto 30px auto; background: #fff; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); overflow: hidden; }
+        .schedule-header { background: #2c3e50; color: #fff; padding: 12px 20px; font-weight: bold; font-size: 14px; }
+        .time-header { display: flex; justify-content: space-between; padding: 8px 15px; border-bottom: 1px solid #eaeaea; color: #777; font-size: 11px; font-weight: bold; background: #fafbfc; margin-left: 90px;}
+        .timeline-container { height: 180px; padding: 10px; overflow-y: auto; background: repeating-linear-gradient(90deg, transparent, transparent 19.9%, #f0f0f0 20%); background-size: 100% 100%; position: relative;}
+        .tech-row { display: flex; align-items: center; margin-bottom: 10px; position: relative; height: 35px; border-bottom: 1px dashed #eee;}
+        .tech-name { width: 80px; font-size: 11px; font-weight: bold; color: #555; background: #fff; padding: 4px; border-radius: 4px; border: 1px solid #ccc; z-index: 2; position: absolute; left: 0; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;}
+        .job-block { position: absolute; height: 26px; border-radius: 4px; display: flex; align-items: center; padding: 0 8px; font-size: 10px; color: #fff; font-weight: bold; overflow: hidden; white-space: nowrap; box-shadow: 0 2px 4px rgba(0,0,0,0.2); z-index: 1;}
+        
+        .badge { padding: 3px 6px; border-radius: 4px; font-weight: bold; font-size: 11px; display: inline-block; text-align: center;}
+        .badge-Routine { background: #95a5a6; color: #fff;}
+        .badge-Standard { background: #3498db; color: #fff;}
+        .badge-Urgent { background: #f39c12; color: #fff;}
+        .badge-Emergency { background: #e74c3c; color: #fff; animation: pulse 2s infinite;}
+        .badge-Unassigned { background: #bdc3c7; color: #333;}
+        .badge-Dispatched { background: #9b59b6; color: #fff;}
+
+        /* --- Quote Customer PDF Styling --- */
+        .results-section { display: none; margin-top: 30px; background-color: #fff; padding: 25px; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); max-width: 1400px; margin-left: auto; margin-right: auto;}
+        #internalView { margin-bottom: 40px; padding: 20px; background-color: #fafbfc; border: 1px solid #eaeaea; border-radius: 6px; }
+        .internal-table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 14px; }
+        .internal-table th, .internal-table td { text-align: left; padding: 10px; border-bottom: 1px solid #eaeaea; }
+        .internal-table th { background-color: #f2f4f6; }
+        .grand-total-internal { color: #27ae60; font-weight: bold; font-size: 1.1em; }
+
+        #customerQuoteView { padding: 40px; background-color: #fff; border: 1px solid #ccc; max-width: 800px; margin: 0 auto; }
+        .print-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; }
+        .comp-info { width: 40%; font-size: 14px; }
+        .print-logo { text-align: right; width: 40%; }
+        .print-logo img { max-width: 130px; height: auto; }
+        .print-title { font-size: 28px; color: #1e4b85; font-weight: bold; margin-bottom: 30px; text-align: center; width: 100%; }
+
+        .client-info-boxes { display: flex; justify-content: space-between; margin-bottom: 40px; gap: 20px; }
+        .bill-to-box, .quote-details-box { flex: 1; font-size: 14px; }
+        .info-label { color: #1e4b85; font-weight: bold; margin-bottom: 8px; font-size: 15px;}
+
+        .print-table { width: 100%; border-collapse: collapse; margin-bottom: 30px; font-size: 14px; }
+        .print-table th, .print-table td { text-align: left; padding: 12px; border-bottom: 1px solid #eaeaea; }
+        .print-table th { background-color: #c89b53; color: #fff; font-weight: bold; } 
+        
+        .total-box-wrapper { width: 100%; display: flex; justify-content: flex-end; margin-bottom: 40px; }
+        .total-box-container { width: 35%; font-size: 14px; }
+        .total-line { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #f2f2f2; }
+        .final-total { background-color: #1e4b85; color: #fff; padding: 12px 10px; margin-top: 10px; font-weight: bold; font-size: 1.1em; }
+
+        .footer-terms { font-size: 13px; color: #555; margin-bottom: 40px; }
+        .signature-line { border-top: 2px solid #ccc; width: 40%; text-align: center; font-size: 12px; color: #777; padding-top: 5px; margin-top: 5px; }
+
+        /* --- Modal Stylings --- */
+        .modal-overlay { display: none; position: fixed; z-index: 10001; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.6); backdrop-filter: blur(3px); }
+        .modal-content { background-color: #fff; margin: 5% auto; padding: 25px; border-radius: 8px; width: 85%; max-width: 1000px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #eaeaea; padding-bottom: 15px; margin-bottom: 20px; }
+        .modal-header h2 { margin: 0; color: #1e4b85; }
+        .close-modal { color: #aaa; font-size: 28px; font-weight: bold; cursor: pointer; transition: color 0.2s; }
+        .close-modal:hover { color: #e74c3c; }
+        .select-cust-btn { background: #2ecc71; color: #fff; border: none; padding: 8px 15px; font-size: 12px; border-radius: 4px; cursor: pointer; }
+        .select-cust-btn:hover { background: #27ae60; }
+        
+        .customer-row:hover { background-color: #eef2f5 !important; }
+        .submenu-table td { border-bottom: none; padding: 8px 12px; }
+        .submenu-table tr:nth-child(even) { background-color: #f9f9f9; }
+
+        /* Leaflet Specific Overrides */
+        .leaflet-popup-content-wrapper { border-radius: 6px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); }
+        .leaflet-popup-content { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 13px; line-height: 1.4; }
+
+        /* Print formatting */
+        @media print {
+            @page { margin: 0; }
+            body { margin: 1cm; background: #fff; display: block; }
+            .sidebar { display: none !important; }
+            .main-content { margin-left: 0 !important; padding: 0 !important; display: block !important; overflow: visible;}
+            .form-container, .database-section, .dispatch-hero, .dispatch-schedule-full, .action-bar, #internalView, .add-part-btn, .print-btn, #saveIndicator, .modal-overlay { display: none !important; }
+            .results-section { box-shadow: none; border: none; padding: 0; margin: 0; display: block !important; max-width: 100%; }
+            #customerQuoteView { border: none; padding: 0; max-width: 100%; }
+        }
+    </style>
+</head>
+<body>
+
+    <datalist id="customerNamesList"></datalist>
+    <datalist id="locationStreetsList"></datalist>
+
+    <div class="sidebar">
+        <div class="sidebar-logo">
+            <img src="tphc_logo.png" alt="Twin Pillars Logo">
+        </div>
+        <ul class="sidebar-menu">
+            <li><a id="nav-service" onclick="navToServiceCall()" class="active-tab">Service Call Intake</a></li>
+            <li><a id="nav-quoting" onclick="switchTab('quoting')">Quoting Tool</a></li>
+            <li><a onclick="openCustomerDirectory()">Customer Directory</a></li>
+            <li><a onclick="document.getElementById('dbTarget').scrollIntoView({behavior: 'smooth'})">Recent Quotes</a></li>
+            <li><a href="notes.html">Tech Notes Tool</a></li>
+        </ul>
+        <div class="sidebar-footer">
+            Twin Pillars Heating & Cooling<br>Dispatcher Portal v3.0
+        </div>
+    </div>
+
+    <div class="main-content">
+        
+        <div id="view-service" class="app-view active">
+            
+            <div class="dispatch-hero">
+                <div id="dispatchMapContainer" class="dispatch-map-full" style="z-index: 1;"></div>
+                
+                <div style="position: absolute; bottom: 85px; right: 10px; z-index: 10; display: flex; flex-direction: column; gap: 8px;">
+                    <button class="gen-btn" style="background:#fff; color:#333; box-shadow: 0 2px 6px rgba(0,0,0,0.3); padding: 8px 12px; font-size:12px; border-radius: 4px; border: 1px solid #ccc;" onclick="setMapType('m')">Map</button>
+                    <button class="gen-btn" style="background:#fff; color:#333; box-shadow: 0 2px 6px rgba(0,0,0,0.3); padding: 8px 12px; font-size:12px; border-radius: 4px; border: 1px solid #ccc;" onclick="setMapType('k')">Satellite</button>
+                </div>
+
+                <div class="dispatch-list-overlay">
+                    <div class="overlay-header">
+                        <span>Active Service Requests <span class="badge" style="background:#fff; color:#1e4b85; margin-left:8px;" id="ticketCountBadge">0</span></span>
+                        <button class="gen-btn" style="background:#2ecc71; padding: 4px 10px; font-size:12px;" onclick="scrollToServiceForm()">+ New</button>
+                    </div>
+                    <div id="serviceRequestList" class="overlay-content" style="padding-left: 5px; padding-right: 10px;">
+                        </div>
+                </div>
+            </div>
+
+            <div class="dispatch-schedule-full">
+                <div class="schedule-header">Live Tech Schedule</div>
+                <div class="time-header">
+                    <span>8 AM</span><span>10 AM</span><span>12 PM</span><span>2 PM</span><span>4 PM</span>
+                </div>
+                <div class="timeline-container" id="scheduleTimeline">
+                    </div>
+            </div>
+
+            <div class="form-container" id="serviceFormContainer">
+                <div class="tool-header">
+                    <h2>Log New Service Call</h2>
+                    <button class="gen-btn" style="background-color: #7f8c8d; padding: 10px 15px;" onclick="clearServiceForm()">+ Clear Form</button>
+                </div>
+
+                <input type="hidden" id="scCurrentId" value="">
+
+                <div class="form-section">
+                    <h4>1. Customer & Site Verification</h4>
+                    <div class="form-row">
+                        <div class="input-group">
+                            <label>Customer Name</label>
+                            <input type="text" id="scCustNameInput" placeholder="e.g. Planet Fitness" list="customerNamesList">
+                        </div>
+                        <div class="input-group">
+                            <label>Customer #</label>
+                            <div class="gen-wrapper">
+                                <input type="text" id="scCustNumInput" placeholder="Auto-generated">
+                                <button type="button" class="gen-btn" onclick="generateRandomId('scCustNumInput', 'CST')">Gen</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="input-group">
+                            <label>Site Contact Name</label>
+                            <input type="text" id="scContactNameInput" placeholder="e.g. John Doe">
+                        </div>
+                        <div class="input-group">
+                            <label>Contact Phone Number</label>
+                            <input type="text" id="scContactPhoneInput" placeholder="(555) 555-5555" maxlength="14">
+                        </div>
+                        <div class="input-group">
+                            <label>Contact Email Address</label>
+                            <input type="email" id="scContactEmailInput" placeholder="johndoe@email.com">
+                        </div>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="input-group" style="flex: 2;">
+                            <label>Location Street Address</label>
+                            <input type="text" id="scCustStreetInput" placeholder="1234 Customer St" list="locationStreetsList">
+                        </div>
+                        <div class="input-group">
+                            <label>Location #</label>
+                            <div class="gen-wrapper">
+                                <input type="text" id="scLocNumInput" placeholder="Auto-generated">
+                                <button type="button" class="gen-btn" onclick="generateRandomId('scLocNumInput', 'LOC')">Gen</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="input-group" style="flex: 2;">
+                            <label>City</label>
+                            <input type="text" id="scCustCityInput" placeholder="e.g. Green Bay">
+                        </div>
+                        <div class="input-group" style="flex: 1;">
+                            <label>State</label>
+                            <input type="text" id="scCustStateInput" placeholder="e.g. WI">
+                        </div>
+                        <div class="input-group" style="flex: 1;">
+                            <label>Zip Code</label>
+                            <input type="text" id="scCustZipInput" placeholder="e.g. 54304">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-section">
+                    <h4>2. Call Triage & Dispatch Details</h4>
+                    <div class="form-row">
+                        <div class="input-group">
+                            <label>Service Ticket #</label>
+                            <input type="text" id="scTicketNumberInput" style="background:#f2f4f6; font-weight:bold;">
+                        </div>
+                        <div class="input-group">
+                            <label>Date Logged</label>
+                            <input type="date" id="scDateInput">
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="input-group">
+                            <label>Job Type</label>
+                            <select id="scJobTypeInput">
+                                <option value="Diagnostic / Repair">Diagnostic / Repair</option>
+                                <option value="Preventative Maintenance">Preventative Maintenance</option>
+                                <option value="New Installation">New Installation</option>
+                                <option value="Warranty Call">Warranty Call</option>
+                                <option value="Other">Other</option>
+                            </select>
+                        </div>
+                        <div class="input-group">
+                            <label>Priority / Urgency</label>
+                            <select id="scPriorityInput">
+                                <option value="Routine">Routine (Next Available)</option>
+                                <option value="Standard" selected>Standard (24-48 Hrs)</option>
+                                <option value="Urgent">Urgent (Same Day)</option>
+                                <option value="Emergency">Emergency (Immediate Dispatch)</option>
+                            </select>
+                        </div>
+                        <div class="input-group">
+                            <label>Assigned Technician</label>
+                            <select id="scAssignedTechInput">
+                                <option value="Unassigned">Unassigned</option>
+                                <option value="Dave (Tech 1)">Dave (Tech 1)</option>
+                                <option value="Sarah (Tech 2)">Sarah (Tech 2)</option>
+                                <option value="Mike (Tech 3)">Mike (Tech 3)</option>
+                                <option value="Tom (Tech 4)">Tom (Tech 4)</option>
+                            </select>
+                        </div>
+                        <div class="input-group">
+                            <label>Ticket Status</label>
+                            <select id="scStatusInput">
+                                <option value="Unassigned" selected>Unassigned (Needs Dispatch)</option>
+                                <option value="Dispatched">Dispatched (Assigned to Tech)</option>
+                                <option value="Completed">Completed (Needs Billing)</option>
+                                <option value="Canceled">Canceled</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="input-group" style="width:100%;">
+                            <label style="color:#e74c3c;">Reported Issue / Scope of Work</label>
+                            <textarea id="scIssueInput" style="resize:vertical; min-height:80px; font-family:inherit;" placeholder="Describe what the customer is reporting..."></textarea>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="input-group">
+                            <label>Equipment Details (Optional)</label>
+                            <input type="text" id="scEquipInput" placeholder="e.g. Carrier RTU-3, Server Room Mini-Split">
+                        </div>
+                        <div class="input-group">
+                            <label>Access Instructions / Dispatch Notes</label>
+                            <input type="text" id="scNotesInput" placeholder="e.g. Gate code is 1234, Check in at front desk">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="action-bar">
+                    <button class="generate-btn" style="background-color: #27ae60;" onclick="saveServiceCall(false)">Save Service Ticket</button>
+                </div>
+            </div>
+        </div> <div id="view-quoting" class="app-view">
+            
+            <div class="form-container" id="mainFormContainer">
+                <div class="tool-header">
+                    <h2>Quoting Tool & CRM</h2>
+                    <button class="gen-btn" style="background-color: #7f8c8d; padding: 10px 15px;" onclick="startNewQuote()">+ Start New Quote</button>
+                </div>
+
+                <input type="hidden" id="currentQuoteId" value="">
+
+                <div class="form-section">
+                    <h4>1. Client & Location Details</h4>
+                    <div class="form-row">
+                        <div class="input-group">
+                            <label>Customer Name</label>
+                            <input type="text" id="custNameInput" placeholder="e.g. Planet Fitness" list="customerNamesList">
+                        </div>
+                        <div class="input-group">
+                            <label>Customer #</label>
+                            <div class="gen-wrapper">
+                                <input type="text" id="custNumInput" placeholder="Auto-generated">
+                                <button type="button" class="gen-btn" onclick="generateRandomId('custNumInput', 'CST')">Gen</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="input-group">
+                            <label>Site Contact Name (Optional)</label>
+                            <input type="text" id="contactNameInput" placeholder="e.g. John Doe (Tenant)">
+                        </div>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="input-group" style="flex: 2;">
+                            <label>Location Street Address</label>
+                            <input type="text" id="custStreetInput" placeholder="1234 Customer St" list="locationStreetsList">
+                        </div>
+                        <div class="input-group">
+                            <label>Location #</label>
+                            <div class="gen-wrapper">
+                                <input type="text" id="locNumInput" placeholder="Auto-generated">
+                                <button type="button" class="gen-btn" onclick="generateRandomId('locNumInput', 'LOC')">Gen</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="input-group" style="flex: 2;">
+                            <label>City</label>
+                            <input type="text" id="custCityInput" placeholder="e.g. Green Bay">
+                        </div>
+                        <div class="input-group" style="flex: 1;">
+                            <label>State</label>
+                            <input type="text" id="custStateInput" placeholder="e.g. WI">
+                        </div>
+                        <div class="input-group" style="flex: 1;">
+                            <label>Zip Code</label>
+                            <input type="text" id="custZipInput" placeholder="e.g. 54304">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-section">
+                    <h4>2. Quote Details & Workflow</h4>
+                    <div class="form-row">
+                        <div class="input-group">
+                            <label>Quote # (Auto-Sequential)</label>
+                            <input type="text" id="quoteNumberInput" style="background:#f2f4f6; font-weight:bold;">
+                        </div>
+                        <div class="input-group">
+                            <label>Date</label>
+                            <input type="date" id="quoteDateInput">
+                        </div>
+                        <div class="input-group">
+                            <label>Due Date</label>
+                            <input type="date" id="dueDateInput">
+                        </div>
+                    </div>
+                    
+                    <hr style="border:0; border-top:1px solid #eaeaea; margin: 15px 0;">
+                    
+                    <div class="form-row">
+                        <div class="input-group">
+                            <label>Quote Status</label>
+                            <select id="quoteStatusInput" onchange="handleQuoteStatusChange()">
+                                <option value="Draft">Draft</option>
+                                <option value="Pending" selected>Pending</option>
+                                <option value="Approved">Approved</option>
+                                <option value="Rejected">Rejected</option>
+                                <option value="Requote Requested">Requote Requested</option>
+                            </select>
+                        </div>
+                        <div class="input-group">
+                            <label>Job Workflow</label>
+                            <select id="jobWorkflowInput" onchange="handleJobWorkflowChange()">
+                                <option value="N/A">N/A</option>
+                                <option value="To Be Ordered">To Be Ordered</option>
+                                <option value="Parts Ordered">Parts Ordered</option>
+                                <option value="Parts Received">Parts Received</option>
+                                <option value="Parts In Stock">Parts In Stock</option>
+                                <option value="Needs to be Scheduled">Needs to be Scheduled</option>
+                                <option value="Scheduled">Scheduled</option>
+                                <option value="Completed">Completed</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-row" id="requoteNoteContainer" style="display:none;">
+                        <div class="input-group" style="width:100%;">
+                            <label style="color:#e74c3c;">Reason for Requote / Note History</label>
+                            <textarea id="requoteNoteHistory" readonly style="resize:vertical; min-height:80px; background:#f4f7f6; color:#555;" placeholder="No notes added yet..."></textarea>
+                            
+                            <div style="display:flex; gap:10px; margin-top:10px;">
+                                <input type="text" id="newRequoteNote" placeholder="Type a new note here..." style="flex:1;">
+                                <button type="button" class="gen-btn" style="padding:10px 20px; border-radius:4px;" onclick="addRequoteNote()">Add Note</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-section">
+                    <h4>3. Labor & Truck Charges</h4>
+                    <div class="form-row">
+                        <div class="input-group">
+                            <label>Repair Labor Hours</label>
+                            <input type="number" id="laborHoursInput" value="1.0" step="0.1">
+                        </div>
+                        <div class="input-group">
+                            <label>Labor Cost (per hour) $</label>
+                            <input type="number" id="laborRateInput" value="175.00" step="0.01">
+                        </div>
+                        <div class="input-group">
+                            <label>Truck Charge $</label>
+                            <input type="number" id="truckChargeInput" value="150.00" step="0.01">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-section">
+                    <h4>4. Parts List</h4>
+                    <div id="partsContainer">
+                        <div class="parts-grid-layout part-header-row">
+                            <label>QTY</label>
+                            <label>Part Description</label>
+                            <label>Part Number</label>
+                            <label>Vendor</label>
+                            <label>Lead Time (Days)</label>
+                            <label>Our Cost $</label>
+                            <label></label>
+                        </div>
+                    </div>
+                    <button class="add-part-btn" onclick="addPartRow()">+ Add Part</button>
+                </div>
+
+                <div class="action-bar">
+                    <button class="generate-btn" onclick="createQuote()">Create Quote</button>
+                </div>
+
+            </div>
+
+            <div class="results-section" id="resultsSection">
+                
+                <div id="internalView">
+                    <h3>Internal View (Hidden from Customer)</h3>
+                    <div id="internalQuoteContent"></div>
+                </div>
+                
+                <div id="customerQuoteView">
+                    <div class="print-header">
+                        <div class="comp-info">
+                            <strong>Twin Pillars Heating & Cooling</strong><br>
+                            2944 Holmgren Way<br>
+                            Green Bay, WI 54304
+                        </div>
+                        <div class="print-logo">
+                            <img src="tphc_logo.png" alt="Twin Pillars Print Logo">
+                        </div>
+                    </div>
+                    
+                    <div class="print-title">HVAC QUOTE</div>
+
+                    <div class="client-info-boxes">
+                        <div class="bill-to-box">
+                            <div class="info-label">Bill To</div>
+                            <span id="printCustName">[Customer Name]</span><br>
+                            <span id="printContactName" style="display:none; font-weight:bold; margin-top:2px;"></span><br id="printContactNameBr" style="display:none;">
+                            <span id="printCustStreet"></span><br>
+                            <span id="printCustCityStateZip"></span><br>
+                            <span style="color:#777; font-size:12px; display:inline-block; margin-top:4px;">Cust #: <span id="printCustNum"></span> | Loc #: <span id="printLocNum"></span></span>
+                        </div>
+                        <div class="quote-details-box" style="text-align: right;">
+                            <span style="font-weight: bold;">Quote #</span> <span id="quoteNumberPrint"></span><br>
+                            <span style="font-weight: bold;">Quote Date:</span> <span id="quoteDatePrint"></span><br>
+                            <span style="font-weight: bold;">Status:</span> <span id="printQuoteStatus"></span>
+                        </div>
+                    </div>
+
+                    <table class="print-table">
+                        <thead>
+                            <tr>
+                                <th width="50">QTY</th>
+                                <th>Description</th>
+                                <th width="140">Lead Time (Days)</th>
+                                <th width="100">Unit Price</th>
+                                <th width="100">Amount</th>
+                            </tr>
+                        </thead>
+                        <tbody id="printTableBody"></tbody>
+                    </table>
+
+                    <div class="total-box-wrapper">
+                        <div class="total-box-container">
+                            <div class="total-line">
+                                <span>Subtotal</span> <span id="printSubtotal">$0.00</span>
+                            </div>
+                            <div class="total-line">
+                                <span>Sales Tax (5.5%)</span> <span id="printTax">$0.00</span>
+                            </div>
+                            <div class="final-total total-line">
+                                <span>Total (USD)</span> <span id="printGrandTotal">$0.00</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="footer-terms">
+                        <strong>Terms and Conditions</strong><br>
+                        Payment is due in 14 days.<br>
+                        Please make checks payable to: Twin Pillars Heating & Cooling
+                    </div>
+
+                    <div class="signature-line-wrapper">
+                        <div style="height: 50px;"></div>
+                        <div class="signature-line">customer signature</div>
+                    </div>
+                </div>
+
+                <button class="add-part-btn print-btn" style="width: 100%; margin-top: 20px; background:#1e4b85;" onclick="window.print()">Print as PDF</button>
+            </div>
+
+            <div id="dbTarget" class="database-section">
+                <h3>Recent Quotes Database</h3>
+                <table class="db-table">
+                    <thead>
+                        <tr>
+                            <th width="80">Preview</th>
+                            <th>Date</th>
+                            <th>Quote #</th>
+                            <th>Customer</th>
+                            <th>Location</th>
+                            <th>Total</th>
+                            <th>Workflow</th>
+                            <th style="text-align: center;">Status</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="dbTableBody">
+                        </tbody>
+                </table>
+            </div>
+            
+        </div> </div> <div id="saveIndicator">✓ Auto-Saved</div>
+
+    <div id="ticketDetailsModal" class="modal-overlay">
+        <div class="modal-content" style="max-width: 600px;">
+            <div class="modal-header">
+                <h2 id="tdModalTitle">Ticket Details</h2>
+                <span class="close-modal" onclick="closeTicketDetails()">×</span>
+            </div>
+            <div id="tdModalContent" style="font-size: 14px; line-height: 1.6; margin-bottom: 20px;">
+                </div>
+            <div style="display: flex; justify-content: flex-end; gap: 10px; border-top: 1px solid #eaeaea; padding-top: 15px;">
+                <button class="gen-btn" style="background:#7f8c8d; padding: 10px 20px;" onclick="closeTicketDetails()">Close</button>
+                <button class="gen-btn" style="background:#f39c12; padding: 10px 20px; color:#fff;" id="tdEditBtn">Edit Ticket Form</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="customerModal" class="modal-overlay">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Customer Directory</h2>
+                <div style="display: flex; align-items: center;">
+                    <button class="save-btn" style="padding: 6px 15px; font-size: 13px; margin-right: 15px; background: #2ecc71;" onclick="toggleNewCustomerForm()">+ Add New Customer</button>
+                    <span class="close-modal" onclick="closeCustomerDirectory()">×</span>
+                </div>
+            </div>
+
+            <div id="newCustDirForm" style="display:none; background:#f7f9fb; border:1px solid #c89b53; padding:15px; border-radius:6px; margin-bottom:15px;">
+                <h4 style="margin-top:0; margin-bottom:10px; color:#1e4b85;">Add Customer to Directory</h4>
+                <div style="display:flex; gap:10px; margin-bottom:10px;">
+                    <input type="text" id="dirNewName" placeholder="Customer Name" style="flex:2;">
+                    <input type="text" id="dirNewContact" placeholder="Site Contact Name (Optional)" style="flex:1;">
+                </div>
+                <div style="display:flex; gap:10px; margin-bottom:10px;">
+                    <input type="text" id="dirNewPhone" placeholder="Phone" style="flex:1;" maxlength="14">
+                    <input type="email" id="dirNewEmail" placeholder="Email" style="flex:1;">
+                </div>
+                <div style="display:flex; gap:10px; margin-bottom:10px;">
+                    <input type="text" id="dirNewStreet" placeholder="Street Address" style="flex:2;">
+                    <input type="text" id="dirNewCity" placeholder="City" style="flex:1;">
+                    <input type="text" id="dirNewState" placeholder="State" style="width:70px;">
+                    <input type="text" id="dirNewZip" placeholder="Zip Code" style="width:100px;">
+                </div>
+                <div style="text-align:right;">
+                    <button class="gen-btn" style="padding:8px 15px;" onclick="saveCustomerFromDirectory()">Save Customer</button>
+                </div>
+            </div>
+            
+            <input type="text" id="customerSearch" placeholder="Search by name, address, or ID..." onkeyup="renderCustomerDirectory()" style="margin-bottom: 15px;">
+            
+            <div style="max-height: 500px; overflow-y: auto; border: 1px solid #eaeaea; border-radius: 4px;">
+                <table class="db-table" style="width: 100%;">
+                    <thead>
+                        <tr>
+                            <th style="width: 35%;">Customer Name</th>
+                            <th style="width: 20%;">Customer #</th>
+                            <th style="width: 25%;">Locations</th>
+                            <th style="width: 20%; text-align: right;">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="customerDirectoryBody">
+                        </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <script>
+        // --- DUMMY DATA INJECTOR FOR PROTOTYPE VIEWING ---
+        function injectDummyData() {
+            if (!localStorage.getItem('tp_has_seeded_data')) {
+                // Pre-seed the Map Cache so pins drop instantly
+                const dummyGeo = {
+                    "3043 MERCEDES DR, GREEN BAY, WI 54311": [44.5367, -87.9405],
+                    "2502 S ASHLAND AVE, GREEN BAY, WI 54304": [44.4842, -88.0416],
+                    "1640 W MASON ST, GREEN BAY, WI 54303": [44.5165, -88.0538]
+                };
+                localStorage.setItem('tp_geo_cache', JSON.stringify(dummyGeo));
+
+                const dummyCustomers = {
+                    "PLANET FITNESS": { id: "CST-8180", locations: { "LOC-7503": { street: "1640 W MASON ST", city: "GREEN BAY", state: "WI", zip: "54303", contact: "MIKE", phone: "(920) 555-1234", email: "" } } },
+                    "NEWCAP": { id: "CST-5919", locations: { "LOC-2002": { street: "3043 MERCEDES DR", city: "GREEN BAY", state: "WI", zip: "54311", contact: "JOHN DOE", phone: "(408) 858-2474", email: "" } } },
+                    "PREVEA HEALTH": { id: "CST-9922", locations: { "LOC-2004": { street: "2502 S ASHLAND AVE", city: "GREEN BAY", state: "WI", zip: "54304", contact: "FACILITIES", phone: "(920) 555-1111", email: "" } } }
+                };
+                localStorage.setItem('tp_customers_db', JSON.stringify(dummyCustomers));
+
+                const dummyServices = [
+                    { id: "SC-ID-1", ticketNum: "SRV-1000", date: "2026-03-07", customerName: "NEWCAP", customerNum: "CST-5919", contactName: "JOHN DOE", contactPhone: "(408) 858-2474", contactEmail: "", locationAddress: "3043 MERCEDES DR", custCity: "GREEN BAY", custState: "WI", custZip: "54311", locationNum: "LOC-2002", jobType: "Diagnostic / Repair", priority: "Standard", assignedTech: "Unassigned", status: "Unassigned", issue: "COLD IN BACK AREA. TENANT COMPLAINING OF NO HEAT.", equip: "N/A", notes: "N/A" },
+                    { id: "SC-ID-2", ticketNum: "SRV-1001", date: "2026-03-07", customerName: "PREVEA HEALTH", customerNum: "CST-9922", contactName: "FACILITIES", contactPhone: "(920) 555-1111", contactEmail: "", locationAddress: "2502 S ASHLAND AVE", custCity: "GREEN BAY", custState: "WI", custZip: "54304", locationNum: "LOC-2004", jobType: "Diagnostic / Repair", priority: "Emergency", assignedTech: "Sarah (Tech 2)", status: "Dispatched", issue: "SERVER ROOM AC UNIT DOWN. TEMP RISING RAPIDLY.", equip: "MITSUBISHI MINI SPLIT", notes: "CHECK IN AT MAIN DESK FOR BADGE" }
+                ];
+                localStorage.setItem('twinPillarsServiceDB', JSON.stringify(dummyServices));
+
+                const dummyQuotes = [
+                    { id: "DB-ID-1", customerName: "PLANET FITNESS", customerNum: "CST-8180", contactName: "MIKE", locationAddress: "1640 W MASON ST", custCity: "GREEN BAY", custState: "WI", custZip: "54303", locationNum: "LOC-7503", quoteNum: "QT-1016", status: "Pending", jobWorkflow: "N/A", requoteNote: "", quoteDate: "2026-03-07", dueDate: "2026-03-21", laborHours: 4, laborRate: 175, truckCharge: 150, totalLaborAmount: 700, parts: [ { qty: 1, desc: "SUPPLY FAN MOTOR", num: "OPTIONAL", vendor: "", lead: "2", cost: 300, markupPercent: "100", retailUnit: 600, retailTotal: 600 } ], subtotal: 1450, tax: 79.75, grandTotal: 1529.75 }
+                ];
+                localStorage.setItem('twinPillarsQuotesDB', JSON.stringify(dummyQuotes));
+
+                localStorage.setItem('tp_service_counter', '1002');
+                localStorage.setItem('tp_quote_counter', '1017');
+                localStorage.setItem('tp_has_seeded_data', 'true');
+            }
+        }
+
+
+        // --- GLOBAL VARIABLES ---
+        let autoSaveTimeout;
+        let saveIndicatorTimeout;
+        let currentActiveView = 'service'; 
+        let currentOpenDetailsId = null; 
+
+        // Map Variables
+        let dispatchMap;
+        let markerLayer;
+        let streetLayer;
+        let satLayer;
+        let currentMapType = 'm';
+
+        window.onload = function() {
+            injectDummyData();
+            repairAndSyncCustomerDB(); 
+            
+            initMap(); // Start the dynamic mapping engine!
+            
+            document.getElementById('scDateInput').valueAsDate = new Date();
+            setNextServiceNumber();
+            renderServiceBoard();
+            initDragAndDrop(); 
+            
+            setDates();
+            addPartRow();
+            setNextQuoteNumber();
+            renderQuoteHistory();
+            updateCustomerDatalist();
+
+            // FIXED INTERCEPTORS
+            attachTabAutocomplete('custNameInput', 'customerNamesList', 'quoting', 'customer', 'contactNameInput');
+            attachTabAutocomplete('custStreetInput', 'locationStreetsList', 'quoting', 'location', 'quoteDateInput');
+            attachTabAutocomplete('scCustNameInput', 'customerNamesList', 'service', 'customer', 'scContactNameInput');
+            attachTabAutocomplete('scCustStreetInput', 'locationStreetsList', 'service', 'location', 'scDateInput');
+
+            const phoneInputs = ['scContactPhoneInput', 'dirNewPhone'];
+            phoneInputs.forEach(id => {
+                document.getElementById(id).addEventListener('input', function (e) {
+                    var x = e.target.value.replace(/\D/g, '').match(/(\d{0,3})(\d{0,3})(\d{0,4})/);
+                    e.target.value = !x[2] ? x[1] : '(' + x[1] + ') ' + x[2] + (x[3] ? '-' + x[3] : '');
+                });
+            });
+
+            document.getElementById('mainFormContainer').addEventListener('focusout', triggerQuoteAutoSave);
+            document.getElementById('mainFormContainer').addEventListener('change', triggerQuoteAutoSave);
+            document.getElementById('serviceFormContainer').addEventListener('focusout', triggerServiceAutoSave);
+            document.getElementById('serviceFormContainer').addEventListener('change', triggerServiceAutoSave);
+
+            window.onclick = function(event) {
+                const custModal = document.getElementById('customerModal');
+                const detailModal = document.getElementById('ticketDetailsModal');
+                if (event.target == custModal) closeCustomerDirectory();
+                if (event.target == detailModal) closeTicketDetails();
+            }
+        };
+
+        // --- INTERACTIVE LEAFLET MAP ENGINE ---
+        function initMap() {
+            // Fix Leaflet's default marker image path issue
+            delete L.Icon.Default.prototype._getIconUrl;
+            L.Icon.Default.mergeOptions({
+                iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-2x.png',
+                iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png',
+                shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
+            });
+
+            // Initialize map centered roughly on Green Bay, WI
+            dispatchMap = L.map('dispatchMapContainer', { zoomControl: false }).setView([44.5133, -88.0133], 12);
+            L.control.zoom({ position: 'bottomright' }).addTo(dispatchMap);
+
+            // Setup layer options
+            streetLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                maxZoom: 19, attribution: '© OpenStreetMap'
+            });
+            satLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+                maxZoom: 19, attribution: 'Tiles &copy; Esri'
+            });
+
+            streetLayer.addTo(dispatchMap); 
+            markerLayer = L.layerGroup().addTo(dispatchMap);
+        }
+
+        function setMapType(type) {
+            if (type === 'm') {
+                dispatchMap.removeLayer(satLayer);
+                streetLayer.addTo(dispatchMap);
+            } else {
+                dispatchMap.removeLayer(streetLayer);
+                satLayer.addTo(dispatchMap);
+            }
+        }
+
+        async function plotMarkerOnMap(address, sc) {
+            if (!address || address.includes("UNKNOWN LOCATION")) return;
+            
+            let cache = JSON.parse(localStorage.getItem('tp_geo_cache') || '{}');
+            
+            if (cache[address]) {
+                addCustomPin(cache[address], sc);
+                return;
+            }
+
+            // Fallback Geocoding via OpenStreetMap (Nominatim)
+            try {
+                let res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}`);
+                let data = await res.json();
+                if (data && data.length > 0) {
+                    let coords = [parseFloat(data[0].lat), parseFloat(data[0].lon)];
+                    cache[address] = coords;
+                    localStorage.setItem('tp_geo_cache', JSON.stringify(cache));
+                    addCustomPin(coords, sc);
+                } else {
+                    // Fallback to random Green Bay coordinate if exact address fails
+                    let fallback = [44.5133 + (Math.random()-0.5)*0.05, -88.0133 + (Math.random()-0.5)*0.05];
+                    addCustomPin(fallback, sc);
+                }
+            } catch(e) { console.log("Geocode failed", e); }
+        }
+
+        function addCustomPin(coords, sc) {
+            let color = '#3498db'; 
+            if(sc.priority === 'Emergency') color = '#e74c3c';
+            if(sc.priority === 'Urgent') color = '#f39c12';
+            if(sc.priority === 'Routine') color = '#95a5a6';
+
+            // Create physical pin visual
+            const markerHtml = `<div style="background-color: ${color}; width: 16px; height: 16px; border-radius: 50%; border: 3px solid white; box-shadow: 0 0 6px rgba(0,0,0,0.6);"></div>`;
+            const customIcon = L.divIcon({ html: markerHtml, className: 'custom-leaflet-marker', iconSize: [22, 22], iconAnchor: [11, 11] });
+
+            let marker = L.marker(coords, {icon: customIcon}).addTo(markerLayer);
+            
+            // Connect pin click to the details modal!
+            marker.bindPopup(`<strong style="color:#1e4b85;">${sc.customerName}</strong><br>${sc.ticketNum}<br><button class="gen-btn" style="margin-top:8px; padding:4px 8px; font-size:11px; background:#2ecc71; width:100%;" onclick="openTicketDetails('${sc.id}')">View Details</button>`);
+        }
+
+        function centerMapOnTicket(dbId) {
+            let db = JSON.parse(localStorage.getItem('twinPillarsServiceDB') || '[]');
+            const sc = db.find(s => s.id === dbId);
+            if (!sc) return;
+            const fullAddress = `${sc.locationAddress}, ${sc.custCity}, ${sc.custState} ${sc.custZip}`;
+            
+            let cache = JSON.parse(localStorage.getItem('tp_geo_cache') || '{}');
+            if (cache[fullAddress]) {
+                dispatchMap.flyTo(cache[fullAddress], 16, { animate: true, duration: 1.5 });
+            }
+        }
+
+        // --- TAB SWITCHING LOGIC ---
+        function switchTab(tabName) {
+            currentActiveView = tabName;
+            
+            document.getElementById('view-service').classList.remove('active');
+            document.getElementById('view-quoting').classList.remove('active');
+            document.getElementById('nav-service').classList.remove('active-tab');
+            document.getElementById('nav-quoting').classList.remove('active-tab');
+            
+            document.getElementById('view-' + tabName).classList.add('active');
+            document.getElementById('nav-' + tabName).classList.add('active-tab');
+            
+            updateLocationDatalist();
+            
+            // Required fix so Leaflet map renders correctly when unhidden
+            if(tabName === 'service') {
+                setTimeout(() => { dispatchMap.invalidateSize(); }, 100);
+            }
+        }
+        
+        function navToServiceCall() {
+            switchTab('service');
+            setTimeout(() => {
+                document.getElementById('serviceFormContainer').scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }, 100);
+        }
+
+        function scrollToServiceForm() {
+            document.getElementById('serviceFormContainer').scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+
+        // --- SMART TAB-TO-COMPLETE INTERCEPTOR ---
+        function attachTabAutocomplete(inputId, datalistId, context, type, nextFocusId) {
+            const inputEl = document.getElementById(inputId);
+            
+            inputEl.addEventListener('keydown', function(e) {
+                if (e.key === 'Tab') {
+                    const val = this.value.trim().toUpperCase();
+                    if (val !== "") {
+                        const datalist = document.getElementById(datalistId);
+                        const options = datalist.options;
+                        for (let i = 0; i < options.length; i++) {
+                            if (options[i].value.toUpperCase().startsWith(val)) {
+                                e.preventDefault(); // STOP the browser from jumping
+                                this.value = options[i].value; 
+                                
+                                if (type === 'customer') {
+                                    checkCustomerAutoNumber(context);
+                                    updateLocationDatalist();
+                                } else if (type === 'location') {
+                                    checkLocationAutoNumber(context);
+                                }
+
+                                if(context === 'quoting') triggerQuoteAutoSave();
+                                if(context === 'service') triggerServiceAutoSave();
+                                
+                                if(nextFocusId && document.getElementById(nextFocusId)) {
+                                    document.getElementById(nextFocusId).focus();
+                                } else {
+                                    this.blur();
+                                }
+                                break; 
+                            }
+                        }
+                    }
+                }
+            });
+
+            inputEl.addEventListener('change', function() {
+                if (type === 'customer') { checkCustomerAutoNumber(context); updateLocationDatalist(); } 
+                else if (type === 'location') { checkLocationAutoNumber(context); }
+                if(context === 'quoting') triggerQuoteAutoSave();
+                if(context === 'service') triggerServiceAutoSave();
+            });
+        }
+        
+        // --- CUSTOMER DIRECTORY SMART DB LOGIC & CLEANUP ---
+        function getCustomerDB() { return JSON.parse(localStorage.getItem('tp_customers_db') || '{}'); }
+        function saveCustomerDB(db) { localStorage.setItem('tp_customers_db', JSON.stringify(db)); updateCustomerDatalist(); }
+
+        function repairAndSyncCustomerDB() {
+            let db = getCustomerDB();
+            let needsSave = false;
+
+            for (let custName in db) {
+                let cust = db[custName];
+                let cleanLocs = {};
+                if (cust.locations) {
+                    for (let key in cust.locations) {
+                        let val = cust.locations[key];
+                        if (key.startsWith("LOC-") && typeof val === 'object') {
+                            if (val.state) {
+                                let stateMatch = val.state.match(/^([a-zA-Z]{2})\s*(\d{5})$/);
+                                if (stateMatch) { val.state = stateMatch[1]; if (!val.zip) val.zip = stateMatch[2]; needsSave = true; }
+                            }
+                            cleanLocs[key] = val;
+                        } 
+                        else if (typeof val === 'string' && val.startsWith("LOC-")) {
+                            let parts = key.split('|');
+                            let street = parts[0] || "UNKNOWN LOCATION";
+                            if (street !== "UNKNOWN LOCATION" && street.length > 3) {
+                                if (!cleanLocs[val] || street.length > (cleanLocs[val].street || "").length) {
+                                    cleanLocs[val] = { street: street, city: parts[1] || "", state: parts[2] || "", zip: parts[3] || "", contact: "", phone: "", email: "" };
+                                }
+                            }
+                            needsSave = true;
+                        } else { needsSave = true; }
+                    }
+                }
+                cust.locations = cleanLocs;
+            }
+
+            for (let custName in db) {
+                if (custName.length < 3 || custName === "UNKNOWN CUSTOMER") {
+                    delete db[custName]; needsSave = true;
+                }
+            }
+            if (needsSave) saveCustomerDB(db);
+        }
+
+        function toggleNewCustomerForm() {
+            const form = document.getElementById('newCustDirForm');
+            form.style.display = form.style.display === 'none' ? 'block' : 'none';
+            if (form.style.display === 'block') document.getElementById('dirNewName').focus();
+        }
+
+        function saveCustomerFromDirectory() {
+            const name = document.getElementById('dirNewName').value.trim().toUpperCase();
+            const contact = document.getElementById('dirNewContact').value.trim().toUpperCase();
+            const phone = document.getElementById('dirNewPhone').value.trim();
+            const email = document.getElementById('dirNewEmail').value.trim();
+            const street = document.getElementById('dirNewStreet').value.trim().toUpperCase();
+            const city = document.getElementById('dirNewCity').value.trim().toUpperCase();
+            const state = document.getElementById('dirNewState').value.trim().toUpperCase();
+            const zip = document.getElementById('dirNewZip').value.trim().toUpperCase();
+
+            if (!name || name.length < 3) { alert("Valid Customer Name is required."); return; }
+
+            let db = getCustomerDB();
+            if (!db[name]) db[name] = { id: `CST-${Math.floor(1000+Math.random()*9000)}`, locations: {} };
+            
+            if (street && street.length > 3) {
+                let locId = `LOC-${Math.floor(1000+Math.random()*9000)}`;
+                db[name].locations[locId] = { street, city, state, zip, contact, phone, email };
+            }
+
+            saveCustomerDB(db);
+            document.getElementById('dirNewName').value = ''; document.getElementById('dirNewContact').value = '';
+            document.getElementById('dirNewPhone').value = ''; document.getElementById('dirNewEmail').value = '';
+            document.getElementById('dirNewStreet').value = ''; document.getElementById('dirNewCity').value = '';
+            document.getElementById('dirNewState').value = ''; document.getElementById('dirNewZip').value = '';
+            
+            toggleNewCustomerForm();
+            renderCustomerDirectory();
+        }
+
+        function syncCustomerToDirectory(data) {
+            if (!data.customerName || data.customerName === "UNKNOWN CUSTOMER" || data.customerName.length < 3) return;
+            let db = getCustomerDB();
+            
+            if (!db[data.customerName]) {
+                let custId = data.customerNum;
+                if (!custId || custId === "N/A" || custId === "") custId = `CST-${Math.floor(1000+Math.random()*9000)}`;
+                db[data.customerName] = { id: custId, locations: {} };
+            } else if (data.customerNum && data.customerNum !== "N/A" && data.customerNum !== "") {
+                db[data.customerName].id = data.customerNum;
+            } 
+            
+            let street = data.locationAddress;
+            if (street && street !== "UNKNOWN LOCATION" && street.length > 3) {
+                let locId = data.locationNum;
+                if (!locId || locId === "N/A" || locId === "") locId = `LOC-${Math.floor(1000+Math.random()*9000)}`;
+                
+                let existingLoc = db[data.customerName].locations[locId] || {};
+                db[data.customerName].locations[locId] = {
+                    street: street, city: data.custCity || "", state: data.custState || "", zip: data.custZip || "", 
+                    contact: data.contactName || existingLoc.contact || "",
+                    phone: data.contactPhone || existingLoc.phone || "",
+                    email: data.contactEmail || existingLoc.email || ""
+                };
+            }
+            saveCustomerDB(db);
+        }
+
+        function updateCustomerDatalist() {
+            const db = getCustomerDB();
+            const datalist = document.getElementById('customerNamesList');
+            datalist.innerHTML = '';
+            for (let custName in db) {
+                let option = document.createElement('option'); option.value = custName; datalist.appendChild(option);
+            }
+        }
+
+        function updateLocationDatalist() {
+            const db = getCustomerDB();
+            const inputId = currentActiveView === 'quoting' ? 'custNameInput' : 'scCustNameInput';
+            const custName = document.getElementById(inputId).value.trim().toUpperCase();
+            const datalist = document.getElementById('locationStreetsList');
+            datalist.innerHTML = '';
+            
+            if (db[custName] && db[custName].locations) {
+                for (let locId in db[custName].locations) {
+                    let street = db[custName].locations[locId].street;
+                    if (street && street !== "UNKNOWN LOCATION") {
+                        let option = document.createElement('option'); option.value = street; datalist.appendChild(option);
+                    }
+                }
+            }
+        }
+
+        function openCustomerDirectory() {
+            document.getElementById('customerModal').style.display = 'block';
+            document.getElementById('customerSearch').value = '';
+            document.getElementById('newCustDirForm').style.display = 'none';
+            renderCustomerDirectory();
+            document.getElementById('customerSearch').focus();
+        }
+
+        function closeCustomerDirectory() { document.getElementById('customerModal').style.display = 'none'; }
+
+        function toggleLocs(safeCustName) {
+            const row = document.getElementById('locs-' + safeCustName);
+            const icon = document.getElementById('icon-' + safeCustName);
+            if (row.style.display === 'none') { row.style.display = 'table-row'; icon.innerText = '▲'; } 
+            else { row.style.display = 'none'; icon.innerText = '▼'; }
+        }
+
+        function renderCustomerDirectory() {
+            const db = getCustomerDB();
+            const tbody = document.getElementById('customerDirectoryBody');
+            const filter = document.getElementById('customerSearch').value.toUpperCase();
+            tbody.innerHTML = "";
+            let hasResults = false;
+
+            for (const custName in db) {
+                const cust = db[custName];
+                const custId = cust.id || "N/A";
+                const locIds = Object.keys(cust.locations || {});
+                let customerMatches = filter === "" || custName.includes(filter) || custId.includes(filter);
+                let matchingLocs = [];
+                
+                locIds.forEach(locId => {
+                    const locData = cust.locations[locId];
+                    const street = locData.street || ""; const city = locData.city || "";
+                    const state = locData.state || ""; const zip = locData.zip || "";
+                    const contact = locData.contact || ""; const phone = locData.phone || "";
+                    let searchLocStr = `${contact} ${phone} ${street} ${city} ${state} ${zip}`.toUpperCase();
+                    if (customerMatches || searchLocStr.includes(filter) || locId.includes(filter)) matchingLocs.push({ locId, ...locData });
+                });
+
+                if (matchingLocs.length > 0 && !customerMatches) customerMatches = true; 
+
+                if (customerMatches) {
+                    hasResults = true;
+                    const safeCustName = custName.replace(/[^a-zA-Z0-9]/g, "_");
+                    const safeRawName = custName.replace(/'/g, "\\'"); 
+                    const locCount = locIds.length;
+                    const expandIcon = filter !== "" ? "▲" : "▼"; 
+                    const displayStyle = filter !== "" ? "table-row" : "none"; 
+
+                    tbody.innerHTML += `
+                        <tr class="customer-row" style="background-color: #f2f4f6; cursor: pointer; border-bottom: 1px solid #ddd;" onclick="toggleLocs('${safeCustName}')">
+                            <td><strong>${custName}</strong></td>
+                            <td>${custId}</td>
+                            <td style="color: #1e4b85;"><em>${locCount} Location${locCount !== 1 ? 's' : ''}</em></td>
+                            <td style="text-align: right;">
+                                <button class="gen-btn" style="background-color: #7f8c8d; padding: 6px 10px; font-size: 11px;" onclick="event.stopPropagation(); deleteCustomerEntirely('${safeRawName}')">Delete Cust</button>
+                                <span id="icon-${safeCustName}" style="margin-left: 10px; font-size: 14px;">${expandIcon}</span>
+                            </td>
+                        </tr>
+                    `;
+
+                    let locsHTML = `<tr id="locs-${safeCustName}" style="display: ${displayStyle}; border-bottom: 2px solid #1e4b85;"><td colspan="4" style="padding: 0;"><table class="submenu-table" style="width: 100%; background: #fff; font-size: 13px;">`;
+                    
+                    if (locCount > 0) {
+                        locIds.forEach(locId => {
+                            const locData = cust.locations[locId];
+                            const street = locData.street || ""; const city = locData.city || "";
+                            const state = locData.state || ""; const zip = locData.zip || "";
+                            const contact = locData.contact || ""; const phone = locData.phone || "";
+                            const email = locData.email || "";
+                            
+                            let displayLoc = `<strong>${street}</strong>`;
+                            if(contact) displayLoc += ` <span style="color:#e74c3c; font-size:11px;">(Attn: ${contact})</span>`;
+                            if(phone) displayLoc += ` <span style="color:#3498db; font-size:11px;">${phone}</span>`;
+                            if(city || state || zip) displayLoc += `<br><span style="color:#777;">${city}, ${state} ${zip}</span>`;
+
+                            locsHTML += `
+                                <tr>
+                                    <td style="width: 5%; color:#ccc; text-align:right;">↳</td>
+                                    <td style="width: 45%;">${displayLoc}</td>
+                                    <td style="width: 20%; color:#555;">${locId}</td>
+                                    <td style="width: 30%; text-align: right;">
+                                        <button class="select-cust-btn" onclick="loadCustomerIntoForm('${safeRawName}', '${custId}', '${street.replace(/'/g, "\\'")}', '${city.replace(/'/g, "\\'")}', '${state.replace(/'/g, "\\'")}', '${zip}', '${locId}', '${contact.replace(/'/g, "\\'")}', '${phone}', '${email}')">Select Location</button>
+                                        <button class="delete-btn" style="padding: 6px 10px; margin-left: 5px;" onclick="deleteCustomerLocation('${safeRawName}', '${locId}')">X</button>
+                                    </td>
+                                </tr>
+                            `;
+                        });
+                    } else {
+                        locsHTML += `<tr><td colspan="4" style="text-align: center; padding: 15px; color: #999;">No locations saved for this customer.<br><button class="select-cust-btn" style="margin-top: 8px;" onclick="loadCustomerIntoForm('${safeRawName}', '${custId}', '', '', '', '', '', '', '', '')">Load Customer Only</button></td></tr>`;
+                    }
+                    locsHTML += `</table></td></tr>`;
+                    tbody.innerHTML += locsHTML;
+                }
+            }
+            if (!hasResults) tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; padding: 20px; color:#777;">No customers found.</td></tr>`;
+        }
+
+        function loadCustomerIntoForm(name, custId, street, city, state, zip, locId, contact, phone, email) {
+            let pfx = currentActiveView === 'quoting' ? '' : 'sc';
+            let custIdStr = currentActiveView === 'quoting' ? 'custNumInput' : 'scCustNumInput';
+            let locIdStr = currentActiveView === 'quoting' ? 'locNumInput' : 'scLocNumInput';
+            
+            document.getElementById(pfx+'custNameInput').value = name;
+            document.getElementById(custIdStr).value = custId;
+            document.getElementById(pfx+'custStreetInput').value = street;
+            document.getElementById(pfx+'custCityInput').value = city;
+            document.getElementById(pfx+'custStateInput').value = state;
+            document.getElementById(pfx+'custZipInput').value = zip;
+            document.getElementById(locIdStr).value = locId === "N/A" ? "" : locId;
+            
+            if(document.getElementById(pfx+'contactNameInput')) document.getElementById(pfx+'contactNameInput').value = contact || "";
+            if(document.getElementById(pfx+'contactPhoneInput')) document.getElementById(pfx+'contactPhoneInput').value = phone || "";
+            if(document.getElementById(pfx+'contactEmailInput')) document.getElementById(pfx+'contactEmailInput').value = email || "";
+            
+            updateLocationDatalist(); 
+            closeCustomerDirectory();
+            
+            if(currentActiveView === 'quoting') triggerQuoteAutoSave();
+            if(currentActiveView === 'service') triggerServiceAutoSave();
+        }
+
+        function deleteCustomerLocation(custName, locId) {
+            if(confirm(`Remove Location ID ${locId} from ${custName}?`)) {
+                let db = getCustomerDB();
+                if(db[custName] && db[custName].locations) { delete db[custName].locations[locId]; saveCustomerDB(db); renderCustomerDirectory(); }
+            }
+        }
+        function deleteCustomerEntirely(custName) {
+            if(confirm(`Are you sure you want to completely delete ${custName} and all of its locations?`)) {
+                let db = getCustomerDB(); delete db[custName]; saveCustomerDB(db); renderCustomerDirectory();
+            }
+        }
+        function generateRandomId(inputId, prefix) {
+            const randomNum = Math.floor(1000 + Math.random() * 9000);
+            document.getElementById(inputId).value = `${prefix}-${randomNum}`;
+            if(currentActiveView === 'quoting') triggerQuoteAutoSave();
+            if(currentActiveView === 'service') triggerServiceAutoSave();
+        }
+
+        function checkCustomerAutoNumber(context) {
+            const pfx = context === 'quoting' ? '' : 'sc';
+            const numId = context === 'quoting' ? 'custNumInput' : 'scCustNumInput';
+            const nameInput = document.getElementById(pfx+'custNameInput');
+            const numInput = document.getElementById(numId);
+            const name = nameInput.value.trim().toUpperCase();
+
+            if (name === "") return;
+            let db = getCustomerDB();
+            if (db[name] && db[name].id) {
+                numInput.value = db[name].id;
+            } else if (numInput.value === "" || numInput.value === "Auto-generated") {
+                numInput.value = `CST-${Math.floor(1000 + Math.random() * 9000)}`;
+            }
+        }
+
+        function checkLocationAutoNumber(context) {
+            const pfx = context === 'quoting' ? '' : 'sc';
+            const locIdStr = context === 'quoting' ? 'locNumInput' : 'scLocNumInput';
+            const name = document.getElementById(pfx+'custNameInput').value.trim().toUpperCase();
+            const street = document.getElementById(pfx+'custStreetInput').value.trim().toUpperCase();
+            const locInput = document.getElementById(locIdStr);
+
+            if (name === "" || street === "") return;
+            let db = getCustomerDB();
+            if (!db[name]) return; 
+
+            let matchedLocId = null; let matchedLocData = null;
+            for (let locId in db[name].locations) {
+                if (db[name].locations[locId].street.toUpperCase() === street) { matchedLocId = locId; matchedLocData = db[name].locations[locId]; break; }
+            }
+
+            if (matchedLocId) {
+                locInput.value = matchedLocId;
+                document.getElementById(pfx+'custCityInput').value = matchedLocData.city || "";
+                document.getElementById(pfx+'custStateInput').value = matchedLocData.state || "";
+                document.getElementById(pfx+'custZipInput').value = matchedLocData.zip || "";
+                
+                if (document.getElementById(pfx+'contactNameInput') && matchedLocData.contact) document.getElementById(pfx+'contactNameInput').value = matchedLocData.contact;
+                if (document.getElementById(pfx+'contactPhoneInput') && matchedLocData.phone) document.getElementById(pfx+'contactPhoneInput').value = matchedLocData.phone;
+                if (document.getElementById(pfx+'contactEmailInput') && matchedLocData.email) document.getElementById(pfx+'contactEmailInput').value = matchedLocData.email;
+            } else if (locInput.value === "" || locInput.value === "Auto-generated") {
+                locInput.value = `LOC-${Math.floor(1000 + Math.random() * 9000)}`;
+            }
+        }
+
+        function showSaveCue(message) {
+            const indicator = document.getElementById('saveIndicator');
+            indicator.innerText = message; indicator.classList.add('show');
+            clearTimeout(saveIndicatorTimeout);
+            saveIndicatorTimeout = setTimeout(() => { indicator.classList.remove('show'); }, 3000);
+        }
+
+        // ====================================================================
+        // --- DRAG AND DROP LOGIC FOR DISPATCH BOARD ---
+        // ====================================================================
+        function initDragAndDrop() {
+            const requestList = document.getElementById('serviceRequestList');
+
+            requestList.addEventListener('dragstart', e => {
+                if(e.target.classList.contains('glass-card')) {
+                    e.target.classList.add('dragging');
+                }
+            });
+
+            requestList.addEventListener('dragend', e => {
+                if(e.target.classList.contains('glass-card')) {
+                    e.target.classList.remove('dragging');
+                    saveBoardOrder();
+                }
+            });
+
+            requestList.addEventListener('dragover', e => {
+                e.preventDefault();
+                const afterElement = getDragAfterElement(requestList, e.clientY);
+                const draggable = document.querySelector('.dragging');
+                if(draggable) {
+                    if (afterElement == null) {
+                        requestList.appendChild(draggable);
+                    } else {
+                        requestList.insertBefore(draggable, afterElement);
+                    }
+                }
+            });
+        }
+
+        function getDragAfterElement(container, y) {
+            const draggableElements = [...container.querySelectorAll('.glass-card:not(.dragging)')];
+            return draggableElements.reduce((closest, child) => {
+                const box = child.getBoundingClientRect();
+                const offset = y - box.top - box.height / 2;
+                if (offset < 0 && offset > closest.offset) {
+                    return { offset: offset, element: child };
+                } else {
+                    return closest;
+                }
+            }, { offset: Number.NEGATIVE_INFINITY }).element;
+        }
+
+        function saveBoardOrder() {
+            const cards = document.querySelectorAll('#serviceRequestList .glass-card');
+            const visualIds = Array.from(cards).map(card => card.getAttribute('data-id'));
+            
+            let db = JSON.parse(localStorage.getItem('twinPillarsServiceDB') || '[]');
+            let newDb = [];
+            
+            visualIds.reverse().forEach(id => {
+                let item = db.find(sc => sc.id === id);
+                if(item) newDb.push(item);
+            });
+            
+            localStorage.setItem('twinPillarsServiceDB', JSON.stringify(newDb));
+            renderScheduleTimelineOnly(); 
+        }
+
+        function renderScheduleTimelineOnly() {
+            let db = JSON.parse(localStorage.getItem('twinPillarsServiceDB') || '[]');
+            const timelineContainer = document.getElementById('scheduleTimeline');
+            timelineContainer.innerHTML = "";
+            let techCounter = 1; 
+
+            [...db].reverse().forEach((sc, index) => {
+                if (sc.status !== 'Canceled') {
+                    let leftOffset = 10 + (index * 15) % 60; 
+                    let width = 20 + (sc.issue.length % 20); 
+                    let blockColor = sc.priority === 'Emergency' ? '#e74c3c' : (sc.priority === 'Urgent' ? '#f39c12' : '#3498db');
+                    let statusLabel = sc.status === 'Unassigned' ? 'Unassigned Block' : sc.ticketNum;
+                    if (sc.status === 'Unassigned') blockColor = '#bdc3c7'; 
+                    
+                    let techNameDisplay = sc.assignedTech && sc.assignedTech !== 'Unassigned' ? sc.assignedTech.split(' ')[0] : 'Unassigned';
+
+                    timelineContainer.innerHTML += `
+                        <div class="tech-row">
+                            <div class="tech-name" title="${sc.assignedTech || 'Unassigned'}">${techNameDisplay}</div>
+                            <div class="time-blocks" style="width: 100%; position: relative; margin-left: 90px; height: 100%;">
+                                <div class="job-block" style="left: ${leftOffset}%; width: ${width}%; background: ${blockColor}; cursor: pointer;" onclick="openTicketDetails('${sc.id}')" title="${sc.customerName} - ${sc.issue}">
+                                    ${statusLabel}
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                    techCounter++;
+                    if(techCounter > 5) techCounter = 1; 
+                }
+            });
+        }
+
+
+        // ====================================================================
+        // --- SERVICE CALL INTAKE LOGIC ---
+        // ====================================================================
+        function triggerServiceAutoSave() {
+            clearTimeout(autoSaveTimeout);
+            autoSaveTimeout = setTimeout(() => { saveServiceCall(true); }, 250); 
+        }
+
+        function setNextServiceNumber() {
+            let counter = parseInt(localStorage.getItem('tp_service_counter') || '1000');
+            document.getElementById('scTicketNumberInput').value = 'SRV-' + counter;
+        }
+
+        function incrementServiceNumber() {
+            let counter = parseInt(localStorage.getItem('tp_service_counter') || '1000');
+            localStorage.setItem('tp_service_counter', counter + 1);
+        }
+
+        function gatherServiceData() {
+            return {
+                id: document.getElementById('scCurrentId').value,
+                ticketNum: document.getElementById('scTicketNumberInput').value,
+                date: document.getElementById('scDateInput').value,
+                customerName: document.getElementById('scCustNameInput').value.trim().toUpperCase() || "UNKNOWN CUSTOMER",
+                customerNum: document.getElementById('scCustNumInput').value || "N/A",
+                contactName: document.getElementById('scContactNameInput').value.trim().toUpperCase(),
+                contactPhone: document.getElementById('scContactPhoneInput').value.trim(),
+                contactEmail: document.getElementById('scContactEmailInput').value.trim(),
+                locationAddress: document.getElementById('scCustStreetInput').value.trim().toUpperCase(),
+                custCity: document.getElementById('scCustCityInput').value.trim().toUpperCase(),
+                custState: document.getElementById('scCustStateInput').value.trim().toUpperCase(),
+                custZip: document.getElementById('scCustZipInput').value.trim().toUpperCase(),
+                locationNum: document.getElementById('scLocNumInput').value || "N/A",
+                jobType: document.getElementById('scJobTypeInput').value,
+                priority: document.getElementById('scPriorityInput').value,
+                assignedTech: document.getElementById('scAssignedTechInput').value,
+                status: document.getElementById('scStatusInput').value,
+                issue: document.getElementById('scIssueInput').value.trim(),
+                equip: document.getElementById('scEquipInput').value.trim().toUpperCase(),
+                notes: document.getElementById('scNotesInput').value.trim()
+            };
+        }
+
+        function clearServiceForm() {
+            document.getElementById('scCurrentId').value = "";
+            document.getElementById('scCustNameInput').value = "";
+            document.getElementById('scCustNumInput').value = "";
+            document.getElementById('scContactNameInput').value = "";
+            document.getElementById('scContactPhoneInput').value = "";
+            document.getElementById('scContactEmailInput').value = "";
+            document.getElementById('scCustStreetInput').value = "";
+            document.getElementById('scCustCityInput').value = "";
+            document.getElementById('scCustStateInput').value = "";
+            document.getElementById('scCustZipInput').value = "";
+            document.getElementById('scLocNumInput').value = "";
+            document.getElementById('scJobTypeInput').value = "Diagnostic / Repair";
+            document.getElementById('scPriorityInput').value = "Standard";
+            document.getElementById('scAssignedTechInput').value = "Unassigned";
+            document.getElementById('scStatusInput').value = "Unassigned";
+            document.getElementById('scIssueInput').value = "";
+            document.getElementById('scEquipInput').value = "";
+            document.getElementById('scNotesInput').value = "";
+            
+            document.getElementById('scDateInput').valueAsDate = new Date();
+            setNextServiceNumber();
+            document.getElementById('serviceFormContainer').scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+
+        function saveServiceCall(isAutoSave = false) {
+            const data = gatherServiceData();
+            
+            if (isAutoSave && data.id === "" && data.customerName === "UNKNOWN CUSTOMER") return false;
+
+            if (!isAutoSave) {
+                if (data.customerName === "UNKNOWN CUSTOMER" || data.issue === "") {
+                    alert("A Customer Name and Reported Issue are required to log a service call.");
+                    return false;
+                }
+                syncCustomerToDirectory(data);
+            } else if (data.id !== "") {
+                syncCustomerToDirectory(data); 
+            }
+
+            let db = JSON.parse(localStorage.getItem('twinPillarsServiceDB') || '[]');
+
+            if (data.id) {
+                const index = db.findIndex(sc => sc.id === data.id);
+                if (index !== -1) {
+                    db[index] = data;
+                    if (!isAutoSave) { showSaveCue("✓ Ticket Updated!"); clearServiceForm(); }
+                }
+            } else {
+                if (!isAutoSave) { 
+                    data.id = 'SC-ID-' + Date.now(); 
+                    db.push(data);
+                    incrementServiceNumber(); 
+                    showSaveCue(`✓ Ticket Logged! (${data.ticketNum})`);
+                    clearServiceForm();
+                } else { return false; } 
+            }
+
+            localStorage.setItem('twinPillarsServiceDB', JSON.stringify(db));
+            renderServiceBoard();
+            if (isAutoSave) showSaveCue("✓ Auto-Saved");
+            return true;
+        }
+
+        // --- TICKET DETAILS MODAL WITH AUTO-SAVE ---
+        function openTicketDetails(dbId) {
+            currentOpenDetailsId = dbId;
+            let db = JSON.parse(localStorage.getItem('twinPillarsServiceDB') || '[]');
+            const sc = db.find(s => s.id === dbId);
+            if (!sc) return;
+
+            document.getElementById('tdModalTitle').innerText = `Ticket ${sc.ticketNum} - ${sc.customerName}`;
+            
+            let contactStr = sc.contactName ? `<strong>${sc.contactName}</strong>` : `N/A`;
+            if(sc.contactPhone) contactStr += ` | ${sc.contactPhone}`;
+            if(sc.contactEmail) contactStr += ` | ${sc.contactEmail}`;
+
+            document.getElementById('tdModalContent').innerHTML = `
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+                    <span class="badge badge-${sc.status.replace(' ','')}">${sc.status}</span>
+                    <span class="badge badge-${sc.priority}">Priority: ${sc.priority}</span>
+                </div>
+                <div style="background: #fcfdfe; padding: 15px; border: 1px solid #eaeaea; border-radius: 4px; margin-bottom: 15px;">
+                    <p style="margin-top:0; margin-bottom: 5px;"><strong>Assign Technician:</strong></p>
+                    <select id="tdTechSelect" style="width: 100%; padding: 8px; border-radius: 4px; border: 1px solid #ccc; font-family: inherit;">
+                        <option value="Unassigned" ${sc.assignedTech === 'Unassigned' || !sc.assignedTech ? 'selected' : ''}>Unassigned</option>
+                        <option value="Dave (Tech 1)" ${sc.assignedTech === 'Dave (Tech 1)' ? 'selected' : ''}>Dave (Tech 1)</option>
+                        <option value="Sarah (Tech 2)" ${sc.assignedTech === 'Sarah (Tech 2)' ? 'selected' : ''}>Sarah (Tech 2)</option>
+                        <option value="Mike (Tech 3)" ${sc.assignedTech === 'Mike (Tech 3)' ? 'selected' : ''}>Mike (Tech 3)</option>
+                        <option value="Tom (Tech 4)" ${sc.assignedTech === 'Tom (Tech 4)' ? 'selected' : ''}>Tom (Tech 4)</option>
+                    </select>
+                    <div style="font-size: 11px; color: #777; margin-top: 5px;">*Closing this window automatically saves the assignment.</div>
+                </div>
+                <p><strong>Location:</strong><br>${sc.locationAddress}<br>${sc.custCity}, ${sc.custState} ${sc.custZip}</p>
+                <p><strong>Site Contact:</strong><br>${contactStr}</p>
+                <hr style="border:0; border-top:1px solid #eaeaea; margin: 15px 0;">
+                <p><strong>Reported Issue:</strong><br><span style="background:#f4f7f6; padding:10px; display:block; border-radius:4px; margin-top:5px;">${sc.issue}</span></p>
+                <p><strong>Equipment:</strong> ${sc.equip || 'N/A'}</p>
+                <p><strong>Dispatch Notes:</strong> ${sc.notes || 'N/A'}</p>
+            `;
+
+            document.getElementById('tdEditBtn').onclick = function() {
+                closeTicketDetails();
+                loadServiceCall(dbId);
+                // Ensure form scroll executes after modal closes
+                setTimeout(() => {
+                    const formEl = document.getElementById('serviceFormContainer');
+                    formEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    // Visual flash so the user sees where they landed
+                    formEl.style.boxShadow = "0 0 25px rgba(200, 155, 83, 0.8)";
+                    setTimeout(() => { formEl.style.boxShadow = "0 4px 15px rgba(0,0,0,0.1)"; }, 1200);
+                }, 200);
+            };
+
+            document.getElementById('ticketDetailsModal').style.display = 'block';
+        }
+
+        function closeTicketDetails() {
+            if (currentOpenDetailsId) {
+                // Auto-save Tech Assignment when closing modal
+                let db = JSON.parse(localStorage.getItem('twinPillarsServiceDB') || '[]');
+                let scIndex = db.findIndex(s => s.id === currentOpenDetailsId);
+                if (scIndex !== -1) {
+                    const techSelect = document.getElementById('tdTechSelect');
+                    if (techSelect) {
+                        const selectedTech = techSelect.value;
+                        db[scIndex].assignedTech = selectedTech;
+                        
+                        // Smart Status Update
+                        if (selectedTech !== 'Unassigned' && db[scIndex].status === 'Unassigned') {
+                            db[scIndex].status = 'Dispatched';
+                        } else if (selectedTech === 'Unassigned' && db[scIndex].status === 'Dispatched') {
+                            db[scIndex].status = 'Unassigned';
+                        }
+                    }
+                    localStorage.setItem('twinPillarsServiceDB', JSON.stringify(db));
+                    renderServiceBoard(); 
+                }
+            }
+            document.getElementById('ticketDetailsModal').style.display = 'none';
+            currentOpenDetailsId = null;
+        }
+
+        function renderServiceBoard() {
+            let db = JSON.parse(localStorage.getItem('twinPillarsServiceDB') || '[]');
+            const listContainer = document.getElementById('serviceRequestList');
+            const timelineContainer = document.getElementById('scheduleTimeline');
+            const counter = document.getElementById('ticketCountBadge');
+            
+            listContainer.innerHTML = "";
+            timelineContainer.innerHTML = "";
+            counter.innerText = db.length;
+
+            if (db.length === 0) {
+                listContainer.innerHTML = `<div style="text-align:center; padding: 20px; color: #555; font-style: italic; background: rgba(255,255,255,0.7); border-radius: 6px;">No active service calls.</div>`;
+                timelineContainer.innerHTML = `<div style="text-align:center; padding: 20px; color: #999; font-style: italic;">Schedule clear.</div>`;
+                return;
+            }
+
+            markerLayer.clearLayers();
+
+            [...db].reverse().forEach((sc, index) => {
+                // Map Plottings
+                if (sc.status !== 'Canceled' && sc.status !== 'Completed') {
+                    let fullAddr = `${sc.locationAddress}, ${sc.custCity}, ${sc.custState} ${sc.custZip}`;
+                    plotMarkerOnMap(fullAddr, sc);
+                }
+
+                let locStr = sc.locationAddress;
+                if(sc.custCity) locStr += ` | ${sc.custCity}, ${sc.custState}`;
+                let issueStr = sc.issue.length > 60 ? sc.issue.substring(0, 60) + "..." : sc.issue;
+                
+                // Construct customer name string with contact in parentheses
+                let titleDisplay = sc.customerName;
+                if (sc.contactName && sc.contactName !== "") {
+                    titleDisplay += ` <span style="font-size:12px; color:#7f8c8d; font-weight:normal;">(${sc.contactName})</span>`;
+                }
+
+                let techNameDisplay = sc.assignedTech && sc.assignedTech !== 'Unassigned' ? sc.assignedTech.split(' ')[0] : '';
+                let techBadgeHTML = techNameDisplay ? `<span style="color:#1e4b85; font-weight:bold; font-size:12px; margin-left:8px; display:inline-flex; align-items:center;">👨‍🔧 ${techNameDisplay}</span>` : '';
+
+                listContainer.innerHTML += `
+                    <div class="glass-card priority-${sc.priority}" draggable="true" data-id="${sc.id}" onclick="centerMapOnTicket('${sc.id}')">
+                        <div style="display:flex; justify-content:space-between; align-items: flex-start;">
+                            <div style="flex:1;">
+                                <div class="tc-title">
+                                    <span>${titleDisplay}</span>
+                                    <span style="color:#555; font-size:12px; margin-left:10px;">${sc.ticketNum}</span>
+                                </div>
+                                <div class="tc-loc">📍 ${locStr}</div>
+                                <div class="tc-issue"><strong>Issue:</strong> ${issueStr}</div>
+                                <div class="tc-footer">
+                                    <div style="display:flex; align-items:center;">
+                                        <span class="badge badge-${sc.status.replace(' ','')}">${sc.status}</span>
+                                        ${techBadgeHTML}
+                                    </div>
+                                    <div style="display:flex; gap:5px;">
+                                        <button class="gen-btn" style="background:#2ecc71; padding: 4px 8px; font-size:11px;" onclick="event.stopPropagation(); openTicketDetails('${sc.id}')">Details</button>
+                                        <button class="gen-btn" style="background:#e74c3c; padding: 4px 8px; font-size:11px;" onclick="event.stopPropagation(); deleteServiceCall('${sc.id}')">Delete</button>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="drag-handle" style="color:#aaa; cursor:grab; font-size:20px; padding-left:10px; user-select:none;" title="Drag to reorder">⋮⋮</div>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            renderScheduleTimelineOnly();
+        }
+
+        function deleteServiceCall(dbId) {
+            if(confirm("Permanently delete this service ticket?")) {
+                let db = JSON.parse(localStorage.getItem('twinPillarsServiceDB') || '[]');
+                db = db.filter(s => s.id !== dbId);
+                localStorage.setItem('twinPillarsServiceDB', JSON.stringify(db));
+                renderServiceBoard();
+            }
+        }
+
+        // ====================================================================
+        // --- QUOTING TOOL LOGIC ---
+        // ====================================================================
+        function triggerQuoteAutoSave() {
+            clearTimeout(autoSaveTimeout);
+            autoSaveTimeout = setTimeout(() => {
+                const successfullySaved = saveQuoteToDatabase(true, true);
+                if (successfullySaved && document.getElementById('resultsSection').style.display === 'block') { updatePreviewHTML(); }
+            }, 250); 
+        }
+
+        function handleQuoteStatusChange() {
+            const status = document.getElementById('quoteStatusInput').value;
+            const workflow = document.getElementById('jobWorkflowInput');
+            const requoteContainer = document.getElementById('requoteNoteContainer');
+            const historyText = document.getElementById('requoteNoteHistory').value.trim();
+            if (status !== 'Approved') workflow.value = 'N/A';
+            if (status === 'Requote Requested' || historyText !== "") requoteContainer.style.display = 'flex';
+            else requoteContainer.style.display = 'none';
+        }
+
+        function handleJobWorkflowChange() {
+            const status = document.getElementById('quoteStatusInput');
+            const workflow = document.getElementById('jobWorkflowInput').value;
+            if (workflow !== 'N/A') { status.value = 'Approved'; handleQuoteStatusChange(); }
+        }
+
+        function addRequoteNote() {
+            const newNoteInput = document.getElementById('newRequoteNote');
+            const newNote = newNoteInput.value.trim(); 
+            if (newNote === "") return;
+            const historyArea = document.getElementById('requoteNoteHistory');
+            const dateStr = new Date().toLocaleString();
+            const formattedNote = `[${dateStr}] ${newNote}`;
+            if (historyArea.value === "") historyArea.value = formattedNote;
+            else historyArea.value += `\n\n` + formattedNote;
+            newNoteInput.value = ""; 
+            historyArea.scrollTop = historyArea.scrollHeight;
+            handleQuoteStatusChange(); 
+            triggerQuoteAutoSave();
+        }
+
+        function setDates() {
+            document.getElementById('quoteDateInput').valueAsDate = new Date();
+            var dueDate = new Date(); dueDate.setDate(dueDate.getDate() + 14);
+            document.getElementById('dueDateInput').valueAsDate = dueDate;
+        }
+
+        function setNextQuoteNumber() {
+            let counter = parseInt(localStorage.getItem('tp_quote_counter') || '1000');
+            document.getElementById('quoteNumberInput').value = 'QT-' + counter;
+        }
+
+        function incrementQuoteNumber() {
+            let counter = parseInt(localStorage.getItem('tp_quote_counter') || '1000');
+            localStorage.setItem('tp_quote_counter', counter + 1);
+        }
+
+        function startNewQuote() {
+            if (document.getElementById('currentQuoteId').value !== "") {
+                saveQuoteToDatabase(true, false); 
+            } else if (document.getElementById('custNameInput').value.trim() !== "") {
+                if(!confirm("You have an unsaved quote in progress. Discard it and start over?")) return; 
+            }
+            
+            document.getElementById('currentQuoteId').value = "";
+            document.getElementById('custNameInput').value = "";
+            document.getElementById('custNumInput').value = "";
+            document.getElementById('contactNameInput').value = "";
+            document.getElementById('custStreetInput').value = "";
+            document.getElementById('custCityInput').value = "";
+            document.getElementById('custStateInput').value = "";
+            document.getElementById('custZipInput').value = "";
+            document.getElementById('locNumInput').value = "";
+            document.getElementById('quoteStatusInput').value = "Pending";
+            document.getElementById('jobWorkflowInput').value = "N/A";
+            document.getElementById('requoteNoteHistory').value = "";
+            document.getElementById('newRequoteNote').value = "";
+            document.getElementById('laborHoursInput').value = "1.0";
+            handleQuoteStatusChange(); 
+            
+            document.getElementById('partsContainer').innerHTML = `
+            <div class="parts-grid-layout part-header-row">
+                <label>QTY</label><label>Part Description</label><label>Part Number</label><label>Vendor</label><label>Lead Time (Days)</label><label>Our Cost $</label><label></label>
+            </div>`;
+            addPartRow(); setDates(); setNextQuoteNumber(); 
+            document.getElementById('resultsSection').style.display = 'none';
+            document.getElementById('mainFormContainer').scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+
+        function addPartRow() {
+            const container = document.getElementById('partsContainer');
+            const row = document.createElement('div');
+            row.className = 'parts-grid-layout part-row part-entry-line';
+            row.innerHTML = `
+                <input type="number" placeholder="QTY" class="p-qty" value="1" min="1">
+                <input type="text" placeholder="e.g. FILTER, MOTOR" class="p-desc">
+                <input type="text" placeholder="Optional" class="p-num">
+                <input type="text" placeholder="Vendor" class="p-vendor text-uppercase">
+                <input type="text" placeholder="e.g. 3" class="p-lead">
+                <div class="cost-wrapper"><span>$</span><input type="number" placeholder="0.00" class="p-cost" step="0.01" min="0"></div>
+                <div style="text-align: right;"><button class="remove-part-btn" onclick="this.parentElement.parentElement.remove(); triggerQuoteAutoSave();">X</button></div>
+            `;
+            container.appendChild(row);
+        }
+
+        function getMarkupPercentage(cost) {
+            if (cost <= 5) return 4.00; if (cost <= 10) return 3.00; if (cost <= 15) return 2.00;     
+            if (cost <= 100) return 1.50; if (cost <= 500) return 1.00; if (cost <= 1000) return 0.85;   
+            if (cost <= 1500) return 0.75; return 0.65;                     
+        }
+
+        function gatherFormData() {
+            const laborHours = parseFloat(document.getElementById('laborHoursInput').value) || 0;
+            const laborRate = parseFloat(document.getElementById('laborRateInput').value) || 0;
+            const truckCharge = parseFloat(document.getElementById('truckChargeInput').value) || 0;
+            const totalLaborAmount = laborHours * laborRate;
+            
+            let partsData = []; let partsRetailSubtotal = 0;
+            document.querySelectorAll('.part-entry-line').forEach(row => {
+                const qty = parseInt(row.querySelector('.p-qty').value) || 1;
+                const desc = row.querySelector('.p-desc').value.trim().toUpperCase();
+                const cost = parseFloat(row.querySelector('.p-cost').value);
+                const vendor = row.querySelector('.p-vendor').value.trim().toUpperCase();
+
+                if (!isNaN(cost) && desc !== "") {
+                    const markupMultiplier = getMarkupPercentage(cost);
+                    const retailPricePerUnit = cost + (cost * markupMultiplier);
+                    const totalRetailAmount = retailPricePerUnit * qty;
+                    partsRetailSubtotal += totalRetailAmount;
+                    partsData.push({ qty, desc, num: row.querySelector('.p-num').value.trim().toUpperCase(), vendor, lead: row.querySelector('.p-lead').value.trim().toUpperCase() || "IN STOCK", cost, markupPercent: (markupMultiplier * 100).toFixed(0), retailUnit: retailPricePerUnit, retailTotal: totalRetailAmount });
+                }
+            });
+
+            const subtotal = partsRetailSubtotal + totalLaborAmount + truckCharge;
+            const tax = subtotal * 0.055;
+            const grandTotal = subtotal + tax;
+
+            return {
+                id: document.getElementById('currentQuoteId').value, 
+                customerName: document.getElementById('custNameInput').value.trim().toUpperCase() || "UNKNOWN CUSTOMER",
+                customerNum: document.getElementById('custNumInput').value.trim().toUpperCase() || "N/A",
+                contactName: document.getElementById('contactNameInput').value.trim().toUpperCase() || "",
+                locationAddress: document.getElementById('custStreetInput').value.trim().toUpperCase() || "UNKNOWN LOCATION",
+                custCity: document.getElementById('custCityInput').value.trim().toUpperCase() || "",
+                custState: document.getElementById('custStateInput').value.trim().toUpperCase() || "",
+                custZip: document.getElementById('custZipInput').value.trim().toUpperCase() || "",
+                locationNum: document.getElementById('locNumInput').value.trim().toUpperCase() || "N/A",
+                quoteNum: document.getElementById('quoteNumberInput').value || "N/A",
+                status: document.getElementById('quoteStatusInput').value,
+                jobWorkflow: document.getElementById('jobWorkflowInput').value,
+                requoteNote: document.getElementById('requoteNoteHistory').value, 
+                quoteDate: document.getElementById('quoteDateInput').value,
+                dueDate: document.getElementById('dueDateInput').value,
+                laborHours, laborRate, truckCharge, totalLaborAmount, parts: partsData, subtotal, tax, grandTotal
+            };
+        }
+
+        function updatePreviewHTML() {
+            const data = gatherFormData();
+            let requoteHTML = data.requoteNote !== "" ? `<div style="color:#e74c3c; margin-bottom:10px;"><strong>Requote Notes:</strong><br><pre style="margin:5px 0; font-family:inherit; white-space:pre-wrap;">${data.requoteNote}</pre></div>` : "";
+
+            let fullAddressString = data.locationAddress;
+            let cityStateZip = [];
+            if(data.custCity) cityStateZip.push(data.custCity);
+            let stateZip = [];
+            if(data.custState) stateZip.push(data.custState);
+            if(data.custZip) stateZip.push(data.custZip);
+            if(stateZip.length > 0) cityStateZip.push(stateZip.join(" "));
+            let finalCityStateStr = cityStateZip.join(", ");
+            let contactHTML = data.contactName ? `<br><strong>Site Contact:</strong> ${data.contactName}` : "";
+
+            let internalHTML = `
+                <p><strong>Status:</strong> ${data.status} | <strong>Quote #:</strong> ${data.quoteNum}</p>
+                <p><strong>Job Workflow:</strong> ${data.jobWorkflow}</p>
+                ${requoteHTML}
+                <p><strong>Location:</strong> ${fullAddressString} ${finalCityStateStr} ${contactHTML}</p>
+                <p><strong>Repair Labor:</strong> ${data.laborHours} hrs @ $${data.laborRate.toFixed(2)}/hr = <strong>$${data.totalLaborAmount.toFixed(2)}</strong></p>
+                <p><strong>Truck Charge:</strong> <strong>$${data.truckCharge.toFixed(2)}</strong></p>
+                <h4>Parts Detailed List:</h4>
+                <table class="internal-table">
+                    <thead><tr><th>QTY</th><th>Description (Num)</th><th>Vendor</th><th>Lead Time (Days)</th><th>Our Cost</th><th>Markup %</th><th>Unit Retail</th><th>Total Retail</th></tr></thead>
+                    <tbody>
+            `;
+            data.parts.forEach(p => { internalHTML += `<tr><td>${p.qty}</td><td>${p.desc} (${p.num})</td><td>${p.vendor || 'N/A'}</td><td>${p.lead}</td><td>$${p.cost.toFixed(2)}</td><td>${p.markupPercent}%</td><td>$${p.retailUnit.toFixed(2)}</td><td>$${p.retailTotal.toFixed(2)}</td></tr>`; });
+            internalHTML += `</tbody></table><br><p>Subtotal Retail: <strong>$${data.subtotal.toFixed(2)}</strong></p><p>Tax (5.5%): <strong>$${data.tax.toFixed(2)}</strong></p><p>Grand Total: <span class="grand-total-internal">$${data.grandTotal.toFixed(2)}</span></p>`;
+            document.getElementById('internalQuoteContent').innerHTML = internalHTML;
+
+            document.getElementById('printCustName').innerText = data.customerName;
+            if (data.contactName) {
+                document.getElementById('printContactName').innerText = "ATTN: " + data.contactName;
+                document.getElementById('printContactName').style.display = "inline-block";
+                document.getElementById('printContactNameBr').style.display = "inline";
+            } else {
+                document.getElementById('printContactName').style.display = "none";
+                document.getElementById('printContactNameBr').style.display = "none";
+            }
+            document.getElementById('printCustStreet').innerText = data.locationAddress;
+            document.getElementById('printCustCityStateZip').innerText = finalCityStateStr;
+            document.getElementById('printCustNum').innerText = data.customerNum;
+            document.getElementById('printLocNum').innerText = data.locationNum;
+            document.getElementById('quoteNumberPrint').innerText = data.quoteNum;
+            document.getElementById('printQuoteStatus').innerText = data.status.toUpperCase();
+            if (data.quoteDate) document.getElementById('quoteDatePrint').innerText = data.quoteDate.split('-').reverse().join('-');
+
+            const tableBody = document.getElementById('printTableBody');
+            tableBody.innerHTML = "";
+            data.parts.forEach(p => {
+                const row = document.createElement('tr');
+                row.innerHTML = `<td>${p.qty}</td><td>${p.desc}</td><td>${p.lead}</td><td>$${p.retailUnit.toFixed(2)}</td><td>$${p.retailTotal.toFixed(2)}</td>`;
+                tableBody.appendChild(row);
+            });
+            if (data.totalLaborAmount > 0) {
+                const laborRow = document.createElement('tr');
+                laborRow.innerHTML = `<td>${data.laborHours}</td><td>REPAIR LABOR</td><td>N/A</td><td></td><td>$${data.totalLaborAmount.toFixed(2)}</td>`;
+                tableBody.appendChild(laborRow);
+            }
+            if (data.truckCharge > 0) {
+                const truckRow = document.createElement('tr');
+                truckRow.innerHTML = `<td>1</td><td>TRUCK / DISPATCH CHARGE</td><td>N/A</td><td></td><td>$${data.truckCharge.toFixed(2)}</td>`;
+                tableBody.appendChild(truckRow);
+            }
+
+            document.getElementById('printSubtotal').innerText = `$${data.subtotal.toFixed(2)}`;
+            document.getElementById('printTax').innerText = `$${data.tax.toFixed(2)}`;
+            document.getElementById('printGrandTotal').innerText = `$${data.grandTotal.toFixed(2)}`;
+        }
+
+        function createQuote() {
+            const savedSuccessfully = saveQuoteToDatabase(false, false);
+            if (!savedSuccessfully) return; 
+            updatePreviewHTML(); 
+            document.getElementById('resultsSection').style.display = 'block';
+            document.getElementById('internalView').scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+        
+        function saveQuoteToDatabase(silent = false, isAutoSave = false) {
+            if (!isAutoSave) { const pendingNote = document.getElementById('newRequoteNote').value.trim(); if (pendingNote !== "") addRequoteNote(); }
+            const data = gatherFormData();
+
+            if (isAutoSave && data.id === "") return false;
+            if (data.status === 'Requote Requested' && data.requoteNote.trim() === '') {
+                if(!silent) alert("A note explaining why the requote was requested is required. Please type a note and click 'Add Note'.");
+                if(!isAutoSave) document.getElementById('newRequoteNote').focus(); return false; 
+            }
+
+            if (!isAutoSave || data.id !== "") syncCustomerToDirectory(data);
+
+            let db = JSON.parse(localStorage.getItem('twinPillarsQuotesDB') || '[]');
+            if (data.id) {
+                const index = db.findIndex(q => q.id === data.id);
+                if (index !== -1) { db[index] = data; if(!silent) showSaveCue("✓ Quote Updated!"); }
+            } else {
+                data.id = 'DB-ID-' + Date.now(); db.push(data);
+                document.getElementById('currentQuoteId').value = data.id; incrementQuoteNumber(); 
+                if(!silent) showSaveCue(`✓ New Quote Created! (${data.quoteNum})`); 
+            }
+            localStorage.setItem('twinPillarsQuotesDB', JSON.stringify(db));
+            renderQuoteHistory();
+            if (isAutoSave) showSaveCue("✓ Auto-Saved"); 
+            return true; 
+        }
+
+        function renderQuoteHistory() {
+            let db = JSON.parse(localStorage.getItem('twinPillarsQuotesDB') || '[]');
+            const tableBody = document.getElementById('dbTableBody');
+            tableBody.innerHTML = "";
+
+            [...db].reverse().forEach(quote => {
+                let workflowText = (quote.jobWorkflow && quote.jobWorkflow !== 'N/A') ? quote.jobWorkflow : '';
+                if (quote.jobWorkflow === 'Needs to be Scheduled') workflowText = `<span style="color:#e74c3c; font-weight:bold; animation: pulse 2s infinite;">Needs to be Scheduled</span>`;
+                else if (workflowText) workflowText = `<span style="color:#555; font-weight:bold;">${workflowText}</span>`;
+
+                let statusColor = '#333';
+                if(quote.status === 'Pending') statusColor = '#f39c12'; if(quote.status === 'Approved') statusColor = '#27ae60';
+                if(quote.status === 'Rejected') statusColor = '#7f8c8d'; if(quote.status === 'Requote Requested') statusColor = '#8e44ad';
+
+                let statusText = `<strong style="color:${statusColor}; font-size:13px;">${quote.status}</strong>`;
+                let tableLoc = quote.locationAddress;
+                let subLocStr = "";
+                if(quote.custCity) subLocStr += quote.custCity + ", ";
+                if(quote.custState) subLocStr += quote.custState + " ";
+                if(quote.custZip) subLocStr += quote.custZip;
+                if(subLocStr.trim() !== "") tableLoc += `<br><span style="font-size:11px; color:#777;">${subLocStr}</span>`;
+
+                tableBody.innerHTML += `
+                    <tr>
+                        <td><button class="preview-btn" onclick="previewQuote('${quote.id}')">Preview</button></td>
+                        <td>${quote.quoteDate}</td>
+                        <td><strong>${quote.quoteNum}</strong></td>
+                        <td>${quote.customerName}</td>
+                        <td>${tableLoc}</td>
+                        <td>$${quote.grandTotal.toFixed(2)}</td>
+                        <td>${workflowText}</td>
+                        <td style="text-align: center;">${statusText}</td>
+                        <td>
+                            <button class="edit-btn" onclick="loadQuoteForEditing('${quote.id}')">Edit</button>
+                            <button class="delete-btn" onclick="deleteQuote('${quote.id}')">X</button>
+                        </td>
+                    </tr>
+                `;
+            });
+        }
+
+        function previewQuote(dbId) {
+            loadQuoteForEditing(dbId);
+            updatePreviewHTML(); 
+            document.getElementById('resultsSection').style.display = 'block';
+            document.getElementById('internalView').scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+
+        function loadQuoteForEditing(dbId) {
+            let db = JSON.parse(localStorage.getItem('twinPillarsQuotesDB') || '[]');
+            const quote = db.find(q => q.id === dbId);
+            if (!quote) return;
+
+            document.getElementById('currentQuoteId').value = quote.id;
+            document.getElementById('custNameInput').value = quote.customerName;
+            document.getElementById('custNumInput').value = quote.customerNum;
+            document.getElementById('contactNameInput').value = quote.contactName || "";
+            document.getElementById('custStreetInput').value = quote.locationAddress;
+            document.getElementById('custCityInput').value = quote.custCity || "";
+            document.getElementById('custStateInput').value = quote.custState || "";
+            document.getElementById('custZipInput').value = quote.custZip || "";
+            document.getElementById('locNumInput').value = quote.locationNum;
+            document.getElementById('quoteNumberInput').value = quote.quoteNum;
+            document.getElementById('quoteStatusInput').value = quote.status;
+            document.getElementById('jobWorkflowInput').value = quote.jobWorkflow || "N/A";
+            document.getElementById('requoteNoteHistory').value = quote.requoteNote || "";
+            document.getElementById('newRequoteNote').value = "";
+            handleQuoteStatusChange(); updateLocationDatalist(); 
+            
+            document.getElementById('quoteDateInput').value = quote.quoteDate;
+            document.getElementById('dueDateInput').value = quote.dueDate;
+            document.getElementById('laborHoursInput').value = quote.laborHours;
+            document.getElementById('laborRateInput').value = quote.laborRate;
+            document.getElementById('truckChargeInput').value = quote.truckCharge;
+
+            document.getElementById('partsContainer').innerHTML = `<div class="parts-grid-layout part-header-row"><label>QTY</label><label>Part Description</label><label>Part Number</label><label>Vendor</label><label>Lead Time (Days)</label><label>Our Cost $</label><label></label></div>`;
+            quote.parts.forEach(p => {
+                const row = document.createElement('div'); row.className = 'parts-grid-layout part-row part-entry-line';
+                row.innerHTML = `<input type="number" class="p-qty" value="${p.qty}" min="1"><input type="text" class="p-desc" value="${p.desc}"><input type="text" class="p-num" value="${p.num}"><input type="text" class="p-vendor text-uppercase" value="${p.vendor || ''}"><input type="text" class="p-lead" value="${p.lead}"><div class="cost-wrapper"><span>$</span><input type="number" class="p-cost" step="0.01" value="${p.cost}"></div><div style="text-align: right;"><button class="remove-part-btn" onclick="this.parentElement.parentElement.remove(); triggerQuoteAutoSave();">X</button></div>`;
+                document.getElementById('partsContainer').appendChild(row);
+            });
+
+            document.getElementById('resultsSection').style.display = 'none';
+            document.getElementById('mainFormContainer').scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+
+        function deleteQuote(dbId) {
+            if(confirm("Are you sure you want to completely delete this quote?")) {
+                let db = JSON.parse(localStorage.getItem('twinPillarsQuotesDB') || '[]');
+                db = db.filter(q => q.id !== dbId);
+                localStorage.setItem('twinPillarsQuotesDB', JSON.stringify(db));
+                renderQuoteHistory();
+            }
+        }
+    </script>
+</body>
+</html>
