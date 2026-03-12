@@ -70,6 +70,7 @@ function performGoogleSearch(query) {
     });
 }
 
+// --- UPGRADED SMART CRM LOOKUP ENGINE ---
 async function smartProcessLocation(locationStr) {
     let custName = locationStr.trim().toUpperCase();
     let city = "";
@@ -77,6 +78,7 @@ async function smartProcessLocation(locationStr) {
     let state = "WI"; 
     let originalSiteName = "";
 
+    // 1. Detect format (Hyphens vs Continuous String)
     if (locationStr.includes("-")) {
         const parts = locationStr.split(/\s*-\s*/);
         custName = parts[0].trim().toUpperCase();
@@ -89,9 +91,22 @@ async function smartProcessLocation(locationStr) {
             streetSearch = parts[1].trim().toUpperCase();
         }
     } else {
-        originalSiteName = custName;
+        // NEW: Street Address Detector (Looks for a number followed by space and letter, e.g. "1821 N")
+        let addressMatch = custName.match(/\b\d+\s+[A-Z]+/i);
+        
+        if (addressMatch) {
+            let addressIndex = addressMatch.index;
+            originalSiteName = custName.substring(0, addressIndex).trim(); // e.g. "TAKE 5 NEW LONDON"
+            streetSearch = custName.substring(addressIndex).trim(); // e.g. "1821 N SHAWANO ST"
+            custName = originalSiteName;
+        } else {
+            originalSiteName = custName;
+        }
     }
 
+    // ==============================================================
+    // AUTO-PARSER DBA ALIAS DICTIONARY
+    // ==============================================================
     const dbaAliases = {
         "TAKE 5": {
             company: "AMERICAN PLATINUM DOOR & GATE",
@@ -113,6 +128,7 @@ async function smartProcessLocation(locationStr) {
         }
         originalSiteName = matchedAlias; 
     }
+    // ==============================================================
 
     const custNameInput = document.getElementById('invCustNameInput');
     const streetInput = document.getElementById('invStreetInput');
