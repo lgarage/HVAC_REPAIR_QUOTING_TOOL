@@ -751,7 +751,17 @@
             </div>
 
             <div id="dbTarget" class="database-section">
-                <h3>Recent Quotes Database</h3>
+                <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom: 12px;">
+                    <h3 style="margin:0;">Recent Quotes Database <span id="quoteDbCount" style="color:#555; font-size:14px; font-weight:normal;"></span></h3>
+                    <div style="display:flex; gap:8px;">
+                        <button type="button" class="gen-btn" style="background:#1e4b85; color:#fff; padding:8px 14px; font-size:13px;" onclick="exportQuotesBackup()" title="Download a JSON backup of every quote saved on this computer.">⬇ Export Backup</button>
+                        <button type="button" class="gen-btn" style="background:#27ae60; color:#fff; padding:8px 14px; font-size:13px;" onclick="document.getElementById('quotesBackupFileInput').click()" title="Restore quotes from a previously exported backup. Existing quotes are preserved; only new IDs are added.">⬆ Import Backup</button>
+                        <input type="file" id="quotesBackupFileInput" accept="application/json,.json" style="display:none;" onchange="importQuotesBackup(event)">
+                    </div>
+                </div>
+                <div style="font-size:12px; color:#555; margin-bottom:10px;">
+                    Every saved quote on this computer is listed below. Quotes are stored in your browser's local storage and persist across page refreshes and shutdowns. Use <strong>Export Backup</strong> to download a safety copy or move quotes to another computer.
+                </div>
                 <table class="db-table">
                     <thead>
                         <tr>
@@ -1088,38 +1098,47 @@
 
     <script>
         // --- DUMMY DATA INJECTOR FOR PROTOTYPE VIEWING ---
+        // Non-destructive: each key is only seeded if it is currently missing / empty.
+        // This guarantees a dispatcher's existing quotes, customers, and service
+        // tickets on this computer are NEVER overwritten, even if the seed flag
+        // somehow gets cleared.
         function injectDummyData() {
-            if (!localStorage.getItem('tp_has_seeded_data')) {
-                // Pre-seed the Map Cache so pins drop instantly
-                const dummyGeo = {
-                    "3043 MERCEDES DR, GREEN BAY, WI 54311": [44.5367, -87.9405],
-                    "2502 S ASHLAND AVE, GREEN BAY, WI 54304": [44.4842, -88.0416],
-                    "1640 W MASON ST, GREEN BAY, WI 54303": [44.5165, -88.0538]
-                };
-                localStorage.setItem('tp_geo_cache', JSON.stringify(dummyGeo));
+            if (localStorage.getItem('tp_has_seeded_data')) return;
 
-                const dummyCustomers = {
-                    "PLANET FITNESS": { id: "CST-8180", locations: { "LOC-7503": { street: "1640 W MASON ST", city: "GREEN BAY", state: "WI", zip: "54303", contact: "MIKE", phone: "(920) 555-1234", email: "" } } },
-                    "NEWCAP": { id: "CST-5919", locations: { "LOC-2002": { street: "3043 MERCEDES DR", city: "GREEN BAY", state: "WI", zip: "54311", contact: "JOHN DOE", phone: "(408) 858-2474", email: "" } } },
-                    "PREVEA HEALTH": { id: "CST-9922", locations: { "LOC-2004": { street: "2502 S ASHLAND AVE", city: "GREEN BAY", state: "WI", zip: "54304", contact: "FACILITIES", phone: "(920) 555-1111", email: "" } } }
-                };
-                localStorage.setItem('tp_customers_db', JSON.stringify(dummyCustomers));
-
-                const dummyServices = [
-                    { id: "SC-ID-1", ticketNum: "SRV-1000", date: "2026-03-07", customerName: "NEWCAP", customerNum: "CST-5919", contactName: "JOHN DOE", contactPhone: "(408) 858-2474", contactEmail: "", locationAddress: "3043 MERCEDES DR", custCity: "GREEN BAY", custState: "WI", custZip: "54311", locationNum: "LOC-2002", jobType: "Diagnostic / Repair", priority: "Standard", assignedTech: "Unassigned", status: "Unassigned", issue: "COLD IN BACK AREA. TENANT COMPLAINING OF NO HEAT.", equip: "N/A", notes: "N/A" },
-                    { id: "SC-ID-2", ticketNum: "SRV-1001", date: "2026-03-07", customerName: "PREVEA HEALTH", customerNum: "CST-9922", contactName: "FACILITIES", contactPhone: "(920) 555-1111", contactEmail: "", locationAddress: "2502 S ASHLAND AVE", custCity: "GREEN BAY", custState: "WI", custZip: "54304", locationNum: "LOC-2004", jobType: "Diagnostic / Repair", priority: "Emergency", assignedTech: "Sarah (Tech 2)", status: "Dispatched", issue: "SERVER ROOM AC UNIT DOWN. TEMP RISING RAPIDLY.", equip: "MITSUBISHI MINI SPLIT", notes: "CHECK IN AT MAIN DESK FOR BADGE" }
-                ];
-                localStorage.setItem('twinPillarsServiceDB', JSON.stringify(dummyServices));
-
-                const dummyQuotes = [
-                    { id: "DB-ID-1", customerName: "PLANET FITNESS", customerNum: "CST-8180", contactName: "MIKE", locationAddress: "1640 W MASON ST", custCity: "GREEN BAY", custState: "WI", custZip: "54303", locationNum: "LOC-7503", quoteNum: "QT-1016", status: "Pending", jobWorkflow: "N/A", requoteNote: "", quoteDate: "2026-03-07", dueDate: "2026-03-21", laborHours: 4, laborRate: 175, truckCharge: 150, totalLaborAmount: 700, parts: [ { qty: 1, desc: "SUPPLY FAN MOTOR", num: "OPTIONAL", vendor: "", lead: "2", cost: 300, markupPercent: "100", retailUnit: 600, retailTotal: 600 } ], subtotal: 1450, tax: 79.75, grandTotal: 1529.75 }
-                ];
-                localStorage.setItem('twinPillarsQuotesDB', JSON.stringify(dummyQuotes));
-
-                localStorage.setItem('tp_service_counter', '1002');
-                localStorage.setItem('tp_quote_counter', '1017');
-                localStorage.setItem('tp_has_seeded_data', 'true');
+            function seedIfEmpty(key, value, emptyCheck) {
+                const existing = localStorage.getItem(key);
+                let isEmpty = !existing;
+                if (!isEmpty && typeof emptyCheck === 'function') {
+                    try { isEmpty = emptyCheck(JSON.parse(existing)); } catch (e) { isEmpty = false; }
+                }
+                if (isEmpty) localStorage.setItem(key, JSON.stringify(value));
             }
+
+            // Pre-seed the Map Cache so pins drop instantly (only if cache is empty)
+            seedIfEmpty('tp_geo_cache', {
+                "3043 MERCEDES DR, GREEN BAY, WI 54311": [44.5367, -87.9405],
+                "2502 S ASHLAND AVE, GREEN BAY, WI 54304": [44.4842, -88.0416],
+                "1640 W MASON ST, GREEN BAY, WI 54303": [44.5165, -88.0538]
+            }, obj => !obj || Object.keys(obj).length === 0);
+
+            seedIfEmpty('tp_customers_db', {
+                "PLANET FITNESS": { id: "CST-8180", locations: { "LOC-7503": { street: "1640 W MASON ST", city: "GREEN BAY", state: "WI", zip: "54303", contact: "MIKE", phone: "(920) 555-1234", email: "" } } },
+                "NEWCAP": { id: "CST-5919", locations: { "LOC-2002": { street: "3043 MERCEDES DR", city: "GREEN BAY", state: "WI", zip: "54311", contact: "JOHN DOE", phone: "(408) 858-2474", email: "" } } },
+                "PREVEA HEALTH": { id: "CST-9922", locations: { "LOC-2004": { street: "2502 S ASHLAND AVE", city: "GREEN BAY", state: "WI", zip: "54304", contact: "FACILITIES", phone: "(920) 555-1111", email: "" } } }
+            }, obj => !obj || Object.keys(obj).length === 0);
+
+            seedIfEmpty('twinPillarsServiceDB', [
+                { id: "SC-ID-1", ticketNum: "SRV-1000", date: "2026-03-07", customerName: "NEWCAP", customerNum: "CST-5919", contactName: "JOHN DOE", contactPhone: "(408) 858-2474", contactEmail: "", locationAddress: "3043 MERCEDES DR", custCity: "GREEN BAY", custState: "WI", custZip: "54311", locationNum: "LOC-2002", jobType: "Diagnostic / Repair", priority: "Standard", assignedTech: "Unassigned", status: "Unassigned", issue: "COLD IN BACK AREA. TENANT COMPLAINING OF NO HEAT.", equip: "N/A", notes: "N/A" },
+                { id: "SC-ID-2", ticketNum: "SRV-1001", date: "2026-03-07", customerName: "PREVEA HEALTH", customerNum: "CST-9922", contactName: "FACILITIES", contactPhone: "(920) 555-1111", contactEmail: "", locationAddress: "2502 S ASHLAND AVE", custCity: "GREEN BAY", custState: "WI", custZip: "54304", locationNum: "LOC-2004", jobType: "Diagnostic / Repair", priority: "Emergency", assignedTech: "Sarah (Tech 2)", status: "Dispatched", issue: "SERVER ROOM AC UNIT DOWN. TEMP RISING RAPIDLY.", equip: "MITSUBISHI MINI SPLIT", notes: "CHECK IN AT MAIN DESK FOR BADGE" }
+            ], arr => !Array.isArray(arr) || arr.length === 0);
+
+            seedIfEmpty('twinPillarsQuotesDB', [
+                { id: "DB-ID-1", customerName: "PLANET FITNESS", customerNum: "CST-8180", contactName: "MIKE", locationAddress: "1640 W MASON ST", custCity: "GREEN BAY", custState: "WI", custZip: "54303", locationNum: "LOC-7503", quoteNum: "QT-1016", status: "Pending", jobWorkflow: "N/A", requoteNote: "", quoteDate: "2026-03-07", dueDate: "2026-03-21", laborHours: 4, laborRate: 175, truckCharge: 150, totalLaborAmount: 700, parts: [ { qty: 1, desc: "SUPPLY FAN MOTOR", num: "OPTIONAL", vendor: "", lead: "2", cost: 300, markupPercent: "100", retailUnit: 600, retailTotal: 600 } ], subtotal: 1450, tax: 79.75, grandTotal: 1529.75 }
+            ], arr => !Array.isArray(arr) || arr.length === 0);
+
+            if (!localStorage.getItem('tp_service_counter')) localStorage.setItem('tp_service_counter', '1002');
+            if (!localStorage.getItem('tp_quote_counter'))   localStorage.setItem('tp_quote_counter',   '1017');
+            localStorage.setItem('tp_has_seeded_data', 'true');
         }
 
         // --- GLOBAL VARIABLES ---
@@ -2416,6 +2435,9 @@
             const tableBody = document.getElementById('dbTableBody');
             tableBody.innerHTML = "";
 
+            const countEl = document.getElementById('quoteDbCount');
+            if (countEl) countEl.innerText = db.length === 0 ? '(no quotes saved yet)' : `(${db.length} saved)`;
+
             [...db].reverse().forEach(quote => {
                 let workflowText = (quote.jobWorkflow && quote.jobWorkflow !== 'N/A') ? quote.jobWorkflow : '';
                 if (quote.jobWorkflow === 'Needs to be Scheduled') workflowText = `<span style="color:#e74c3c; font-weight:bold; animation: pulse 2s infinite;">Needs to be Scheduled</span>`;
@@ -2512,6 +2534,108 @@
                 localStorage.setItem('twinPillarsQuotesDB', JSON.stringify(db));
                 renderQuoteHistory();
             }
+        }
+
+        // ====================================================================
+        // --- QUOTE BACKUP (Export / Import) ---
+        // Lets the dispatcher download a JSON copy of every quote saved on this
+        // computer, and restore / merge a backup on any computer. Import is
+        // ALWAYS additive — existing quotes are preserved and only records with
+        // a new id are added. Matching ids are left alone by default.
+        // ====================================================================
+        function exportQuotesBackup() {
+            const quotesRaw = localStorage.getItem('twinPillarsQuotesDB') || '[]';
+            let quotes;
+            try { quotes = JSON.parse(quotesRaw); } catch (e) { quotes = []; }
+            if (!Array.isArray(quotes) || quotes.length === 0) {
+                alert("There are no saved quotes to back up yet.");
+                return;
+            }
+
+            const payload = {
+                format: "twinPillars.quotes.backup",
+                version: 1,
+                exportedAt: new Date().toISOString(),
+                quoteCounter: localStorage.getItem('tp_quote_counter') || null,
+                customers: JSON.parse(localStorage.getItem('tp_customers_db') || '{}'),
+                quotes: quotes
+            };
+
+            const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            const stamp = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+            a.href = url;
+            a.download = `twin-pillars-quotes-backup-${stamp}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+
+            showSaveCue(`✓ Exported ${quotes.length} quote${quotes.length === 1 ? '' : 's'} to backup file`);
+        }
+
+        function importQuotesBackup(event) {
+            const file = event.target.files && event.target.files[0];
+            event.target.value = ""; // allow re-importing same file later
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                let payload;
+                try { payload = JSON.parse(e.target.result); } catch (err) {
+                    alert("That file is not valid JSON. Import cancelled — no quotes were changed.");
+                    return;
+                }
+
+                const incomingQuotes = Array.isArray(payload) ? payload : (Array.isArray(payload.quotes) ? payload.quotes : null);
+                if (!incomingQuotes) {
+                    alert("That file does not look like a Twin Pillars quote backup. Import cancelled — no quotes were changed.");
+                    return;
+                }
+
+                const existing = JSON.parse(localStorage.getItem('twinPillarsQuotesDB') || '[]');
+                const existingIds = new Set(existing.map(q => q.id));
+
+                let added = 0, skipped = 0;
+                incomingQuotes.forEach(q => {
+                    if (!q || typeof q !== 'object' || !q.id) { skipped++; return; }
+                    if (existingIds.has(q.id)) { skipped++; return; }
+                    existing.push(q);
+                    existingIds.add(q.id);
+                    added++;
+                });
+
+                // Merge customers non-destructively too (optional block in payload).
+                if (payload.customers && typeof payload.customers === 'object' && !Array.isArray(payload.customers)) {
+                    const custs = JSON.parse(localStorage.getItem('tp_customers_db') || '{}');
+                    for (const name in payload.customers) {
+                        if (!custs[name]) custs[name] = payload.customers[name];
+                    }
+                    localStorage.setItem('tp_customers_db', JSON.stringify(custs));
+                    if (typeof updateCustomerDatalist === 'function') updateCustomerDatalist();
+                }
+
+                localStorage.setItem('twinPillarsQuotesDB', JSON.stringify(existing));
+
+                // If the backup shipped a larger quote counter, advance ours so
+                // future quote numbers don't collide with imported ones.
+                if (payload.quoteCounter) {
+                    const incomingCounter = parseInt(payload.quoteCounter, 10);
+                    const currentCounter = parseInt(localStorage.getItem('tp_quote_counter') || '1000', 10);
+                    if (!isNaN(incomingCounter) && incomingCounter > currentCounter) {
+                        localStorage.setItem('tp_quote_counter', String(incomingCounter));
+                    }
+                }
+
+                renderQuoteHistory();
+                alert(`Backup imported.\n\n  • Added: ${added} new quote${added === 1 ? '' : 's'}\n  • Skipped (already on this computer): ${skipped}\n\nNo existing quotes were modified or deleted.`);
+                showSaveCue(`✓ Imported ${added} quote${added === 1 ? '' : 's'} from backup`);
+            };
+            reader.onerror = function() {
+                alert("Could not read the file. Import cancelled — no quotes were changed.");
+            };
+            reader.readAsText(file);
         }
 
         function showQuotePreview() {
