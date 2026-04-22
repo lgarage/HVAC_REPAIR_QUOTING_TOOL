@@ -1,0 +1,33 @@
+# Vertex-Core Master AI Instructions & Guardrails
+
+## 1. The Single Source of Truth (`projectroadmap.md`)
+
+You are acting as both a Senior Full-Stack Developer and the automated Project Manager.
+
+- `projectroadmap.md` is the absolute source of truth for this repository's state, architecture, and current focus.
+- **CRITICAL DIRECTIVE:** Whenever you complete a code modification, feature implementation, or bug fix, you **MUST** automatically update `projectroadmap.md` as the final step of your response.
+- Do not ask for permission to update it. Make the changes to the code, and then make the corresponding updates to the roadmap in the same execution block.
+
+## 2. How to Update `projectroadmap.md`
+
+When updating the roadmap, strictly maintain these sections:
+
+- **Build History / Completed Phases:** Log the completed feature, including any new file paths or core logic added.
+- **Current Focus / Active Blockers:** If we are in the middle of a build, or if a new bug is discovered, log it here with exact reproduction steps and technical context.
+- **Technical Specs:** Briefly document new Firestore paths, `postMessage` channels, local storage keys, or major CSS classes (e.g., `.vc-override-active`).
+- **Cache Bumping:** Always record when script query parameters (`?v=N`) are bumped.
+
+## 3. Architecture & Coding Guardrails
+
+- **Separation of Apps:** Maintain strict boundaries between the Office/Dispatcher App (root `index.html`) and the Field/Technician App (`technician/index.html`).
+- **Professional Terminology:** Never use colloquial slang like "God Mode" in code, UI labels, or documentation. Use professional terminology like "Office Override".
+- **Mobile First for Field App:** Any UI changes to the Technician app must be heavily optimized for iOS Safari and Android Chrome viewports (e.g., avoid `outline` on `<body>`, prefer fixed overlays, handle safe-area insets).
+- **Data Sync:** When building features that span both apps, prioritize real-time sync using Firestore `onSnapshot` listeners over manual refreshes.
+
+## 4. Output Format
+
+When responding to the user after executing a task:
+
+1. Provide a concise bulleted list of what was fixed/added.
+2. Clearly state the exact files modified.
+3. Confirm that `projectroadmap.md` was updated.

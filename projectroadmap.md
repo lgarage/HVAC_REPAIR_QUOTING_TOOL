@@ -141,16 +141,22 @@ One unified model for all three tools. Key functions (all in `index.html`):
 
 ---
 
-## 7. Print / Save-as-PDF flow
+## 7. Quote preview &amp; Print / Save-as-PDF flow
 
-**Updated Apr 2026** — the "Print as PDF" button no longer fires `window.print()` immediately. Clicking the renamed **"Print or Save as PDF"** button now:
+The quote builder flows into the PDF preview automatically:
 
-1. Calls `showQuotePreview()` which refreshes the customer-facing view with `updatePreviewHTML()`, applies the `screen-preview` CSS class to `#customerQuoteView` so it renders on screen as an 800-px "paper" preview, and scrolls to it.
-2. Reveals a yellow banner + two buttons:
+1. **Preview Quote** button (renamed from "Create Quote" in Apr 2026) at the bottom of the form calls `createQuote()`, which:
+   - Saves the quote via `saveQuoteToDatabase(false, false)` (bumps the sequence, syncs the customer directory, writes to `twinPillarsQuotesDB`).
+   - Calls `updatePreviewHTML()` to populate both the internal view and the customer-facing view.
+   - Reveals `#resultsSection`.
+   - **Automatically calls `showQuotePreview()`** so the dispatcher lands directly on the rendered PDF view without any extra clicks.
+2. `showQuotePreview()` applies the `screen-preview` CSS class to `#customerQuoteView` (rendering it as an 800-px "paper" preview), hides the `#quotePreviewTriggerBtn`, reveals a yellow banner + two action buttons, and scrolls to the top of the preview.
+3. The two action buttons:
    - **Confirm — Print / Save as PDF** (`confirmPrintQuote()`) → fires `window.print()`, opening the browser's native print dialog where the user can choose "Save as PDF" as the destination.
-   - **Close Preview** (`closeQuotePreview()`) → removes the preview, restores the original trigger button.
+   - **Close Preview** (`closeQuotePreview()`) → removes the `screen-preview` class, restores the trigger button, and scrolls back up to the internal view.
+4. A standalone **"Print or Save as PDF"** button (`#quotePreviewTriggerBtn`) remains below the preview for re-opening it after a Close, or for older quotes loaded via the DB table's Preview button.
 
-All preview chrome (banner + confirm/close buttons) carries the `print-btn` class, which the existing `@media print { .print-btn { display: none !important } }` rule hides, so none of it leaks into the printed output.
+All preview chrome (banner + confirm/close buttons + standalone trigger) carries the `print-btn` class, which the existing `@media print { .print-btn { display: none !important } }` rule hides, so none of it leaks into the printed output.
 
 The CSS that makes this work is the `.document-print-view` / `.document-print-view.screen-preview` pair, plus the `@media print` section that forces only the element with the `screen-preview` class to appear on paper.
 
@@ -170,10 +176,22 @@ The CSS that makes this work is the `.document-print-view` / `.document-print-vi
 
 ---
 
-## 10. Recent changes (change log)
+## 10. Build history / completed phases
 
 ### April 2026
 
-- **Markup scale smoothed.** Replaced the 7-tier sliding scale with a 10-tier scale that tapers more gracefully at the high end (new $1 000 – $3 000+ tiers with 70 / 50 / 45 / 40 / 30% markup). Applied consistently across quoting and invoicing. See §5.1.
-- **On-screen PDF preview before printing.** The quote "Print as PDF" button was renamed to **"Print or Save as PDF"** and now shows a full on-screen preview with explicit Confirm / Close controls before the browser's print dialog opens. See §7.
-- **Residential vs. Commercial customer-type toggle.** New pill toggle in Section 3 of both the Quote and Invoice forms. Sets the labor rate to **$125** (Residential) or **$175** (Commercial) in one click, persists the choice on the quote record and on the customer directory, and auto-applies it next time the same customer is selected. See §5.2.
+- **Quote action button renamed &amp; preview auto-opens.** The primary quote-builder button at the bottom of the Quoting Tool form is now **"Preview Quote"** (previously "Create Quote"). Clicking it still saves the quote to the database, but now **automatically triggers `showQuotePreview()`** so the rendered PDF view loads immediately — no separate "Print or Save as PDF" click needed to see the preview. The dispatcher lands directly on the paper-style customer view with the Confirm / Close controls already visible. Files modified: `index.html` (button label + `createQuote()` body). See §7.
+- **On-screen PDF preview before printing.** The quote "Print as PDF" button was renamed to **"Print or Save as PDF"** and now shows a full on-screen preview with explicit Confirm / Close controls before the browser's print dialog opens. Helpers added: `showQuotePreview()`, `confirmPrintQuote()`, `closeQuotePreview()`. Preview chrome uses the `print-btn` class so it is auto-hidden by the existing `@media print` rules. Files modified: `index.html`. See §7.
+- **Residential vs. Commercial customer-type toggle.** New pill toggle in Section 3 of both the Quote and Invoice forms. Sets the labor rate to **$125** (Residential) or **$175** (Commercial) in one click, persists the choice on the quote record **and** on the customer directory, and auto-applies it next time the same customer is selected. Helpers added: `setQuoteCustomerType()`, `setInvoiceCustomerType()`, `_paintTypeToggle()`, constant `CUSTOMER_TYPE_RATES`. Wired into `checkCustomerAutoNumber()` and `loadCustomerIntoForm()` for auto-apply on customer lookup. Files modified: `index.html`, `invoice.js` (reset call in `clearInvoiceForm()`). See §5.2.
+- **Markup scale smoothed.** Replaced the 7-tier sliding scale with a 10-tier scale that tapers more gracefully at the high end (new $1 000 – $3 000+ tiers with 70 / 50 / 45 / 40 / 30% markup). Applied consistently across quoting and invoicing via `getMarkupPercentage()` and `getInvoiceMarkup()`. Files modified: `index.html`. See §5.1.
+
+## 11. Cache-bump log
+
+| Date | Asset | Prev → New | Reason |
+|---|---|---|---|
+| Apr 2026 | `invoice.js` | `?v=8` → `?v=9` | Sliding-scale markup tiers updated (shared with invoice flow). |
+| Apr 2026 | `invoice.js` | `?v=9` → `?v=10` | `clearInvoiceForm()` now resets the new Residential/Commercial toggle. |
+
+## 12. Current focus / active blockers
+
+_None. Most recent delivery (Apr 2026) — quote builder now opens the PDF preview automatically via the renamed **Preview Quote** button. No open blockers._
