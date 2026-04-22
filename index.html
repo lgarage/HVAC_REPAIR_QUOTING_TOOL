@@ -2519,9 +2519,9 @@
 
         function previewQuote(dbId) {
             loadQuoteForEditing(dbId);
-            updatePreviewHTML(); 
+            updatePreviewHTML();
             document.getElementById('resultsSection').style.display = 'block';
-            document.getElementById('internalView').scrollIntoView({ behavior: 'smooth', block: 'start' });
+            showQuotePreview();
         }
 
         function loadQuoteForEditing(dbId) {
