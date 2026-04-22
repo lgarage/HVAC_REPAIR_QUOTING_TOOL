@@ -2167,14 +2167,57 @@
             document.getElementById('dueDateInput').valueAsDate = dueDate;
         }
 
+        // Scans the Recent Quotes Database and returns the highest numeric
+        // portion of any existing "QT-NNNN" quote number, or 0 if none exist.
+        // Used to guarantee the next generated quote # is always strictly
+        // greater than anything already saved on this computer — even if the
+        // `tp_quote_counter` localStorage key is ever cleared, reset, or falls
+        // behind (e.g., after importing an older backup).
+        function getHighestExistingQuoteNumber() {
+            try {
+                const db = JSON.parse(localStorage.getItem('twinPillarsQuotesDB') || '[]');
+                let highest = 0;
+                db.forEach(q => {
+                    if (!q || typeof q.quoteNum !== 'string') return;
+                    const m = q.quoteNum.match(/QT-(\d+)/i);
+                    if (m) {
+                        const n = parseInt(m[1], 10);
+                        if (!isNaN(n) && n > highest) highest = n;
+                    }
+                });
+                return highest;
+            } catch (e) {
+                return 0;
+            }
+        }
+
         function setNextQuoteNumber() {
-            let counter = parseInt(localStorage.getItem('tp_quote_counter') || '1000');
+            let counter = parseInt(localStorage.getItem('tp_quote_counter') || '1000', 10);
+            if (isNaN(counter)) counter = 1000;
+
+            // Self-heal: if any saved quote has a number at or above the
+            // current counter, advance the counter past it so we can never
+            // collide with a quote already on disk.
+            const highest = getHighestExistingQuoteNumber();
+            if (highest >= counter) {
+                counter = highest + 1;
+                localStorage.setItem('tp_quote_counter', String(counter));
+            }
+
             document.getElementById('quoteNumberInput').value = 'QT-' + counter;
         }
 
         function incrementQuoteNumber() {
-            let counter = parseInt(localStorage.getItem('tp_quote_counter') || '1000');
-            localStorage.setItem('tp_quote_counter', counter + 1);
+            let counter = parseInt(localStorage.getItem('tp_quote_counter') || '1000', 10);
+            if (isNaN(counter)) counter = 1000;
+
+            // Safety: ensure the counter never goes below the highest saved
+            // quote number before bumping, so the next auto-generated number
+            // is always strictly greater than any historical quote.
+            const highest = getHighestExistingQuoteNumber();
+            if (highest >= counter) counter = highest + 1;
+
+            localStorage.setItem('tp_quote_counter', String(counter + 1));
         }
 
         function startNewQuote() {
@@ -2629,6 +2672,13 @@
                 }
 
                 renderQuoteHistory();
+
+                // Refresh the displayed "next quote #" so the input field
+                // reflects any counter advance triggered by the imported
+                // quotes — prevents the dispatcher from seeing a stale, now
+                // already-used number in the Quote # field.
+                if (typeof setNextQuoteNumber === 'function') setNextQuoteNumber();
+
                 alert(`Backup imported.\n\n  • Added: ${added} new quote${added === 1 ? '' : 's'}\n  • Skipped (already on this computer): ${skipped}\n\nNo existing quotes were modified or deleted.`);
                 showSaveCue(`✓ Imported ${added} quote${added === 1 ? '' : 's'} from backup`);
             };
