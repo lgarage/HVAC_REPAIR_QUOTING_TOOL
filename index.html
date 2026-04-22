@@ -277,6 +277,18 @@
         .submenu-table td { border-bottom: none; padding: 8px 12px; }
         .submenu-table tr:nth-child(even) { background-color: #f9f9f9; }
 
+        /* Customer Type Toggle (Residential vs Commercial) */
+        .cust-type-toggle { display: flex; gap: 10px; margin-top: 4px; }
+        .cust-type-btn {
+            flex: 1; padding: 12px 14px; border: 2px solid #ccc; background: #fff;
+            color: #555; border-radius: 6px; cursor: pointer; font-size: 14px;
+            font-weight: bold; transition: all 0.15s ease-in-out; text-align: center;
+        }
+        .cust-type-btn:hover { border-color: #1e4b85; color: #1e4b85; }
+        .cust-type-btn.active { background: #1e4b85; border-color: #1e4b85; color: #fff; box-shadow: 0 2px 6px rgba(30,75,133,0.25); }
+        .cust-type-btn.active.residential { background: #27ae60; border-color: #27ae60; box-shadow: 0 2px 6px rgba(39,174,96,0.25); }
+        .cust-type-btn .rate-hint { display: block; font-size: 11px; font-weight: normal; opacity: 0.85; margin-top: 2px; }
+
         /* Print formatting */
         @media print {
             @page { margin: 0; }
@@ -602,6 +614,24 @@
 
                 <div class="form-section">
                     <h4>3. Labor & Truck Charges</h4>
+
+                    <div class="form-row">
+                        <div class="input-group" style="width:100%;">
+                            <label>Customer Type <span style="font-weight:normal; color:#777; font-size:12px;">(sets labor rate automatically)</span></label>
+                            <input type="hidden" id="customerTypeInput" value="Commercial">
+                            <div class="cust-type-toggle">
+                                <button type="button" class="cust-type-btn residential" data-type="Residential" onclick="setQuoteCustomerType('Residential')">
+                                    Residential
+                                    <span class="rate-hint">$125.00 / hr</span>
+                                </button>
+                                <button type="button" class="cust-type-btn active" data-type="Commercial" onclick="setQuoteCustomerType('Commercial')">
+                                    Commercial
+                                    <span class="rate-hint">$175.00 / hr</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
                     <div class="form-row">
                         <div class="input-group">
                             <label>Repair Labor Hours</label>
@@ -838,6 +868,24 @@
 
                 <div class="form-section">
                     <h4 style="margin-top:0; color:#1e4b85;">3. Labor & Truck Charges</h4>
+
+                    <div class="form-row">
+                        <div class="input-group" style="width:100%;">
+                            <label>Customer Type <span style="font-weight:normal; color:#777; font-size:12px;">(sets labor rate automatically)</span></label>
+                            <input type="hidden" id="invCustomerTypeInput" value="Commercial">
+                            <div class="cust-type-toggle">
+                                <button type="button" class="cust-type-btn residential" data-type="Residential" onclick="setInvoiceCustomerType('Residential')">
+                                    Residential
+                                    <span class="rate-hint">$125.00 / hr</span>
+                                </button>
+                                <button type="button" class="cust-type-btn active" data-type="Commercial" onclick="setInvoiceCustomerType('Commercial')">
+                                    Commercial
+                                    <span class="rate-hint">$175.00 / hr</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
                     <div class="form-row">
                         <div class="input-group">
                             <label>Repair Labor Hours</label>
@@ -1390,6 +1438,12 @@
             } else if (data.customerNum && data.customerNum !== "N/A" && data.customerNum !== "" && data.customerNum !== "Auto-generated") {
                 db[data.customerName].id = data.customerNum;
             } 
+
+            // Persist the customer type (Residential / Commercial) at the customer level
+            // so future quotes/invoices for this customer auto-pick the correct labor rate.
+            if (data.customerType === "Residential" || data.customerType === "Commercial") {
+                db[data.customerName].customerType = data.customerType;
+            }
             
             // 2. Handle Location ID
             let street = data.locationAddress;
@@ -1586,7 +1640,19 @@
             
             updateLocationDatalist(); 
             closeCustomerDirectory();
-            
+
+            // Auto-apply saved customer type (Residential / Commercial) when picking
+            // from the customer directory.
+            const custDb = getCustomerDB();
+            const savedType = custDb[name] && custDb[name].customerType;
+            if (savedType === "Residential" || savedType === "Commercial") {
+                if (currentActiveView === 'quoting' && typeof setQuoteCustomerType === 'function') {
+                    setQuoteCustomerType(savedType, { silent: true });
+                } else if (currentActiveView === 'invoice' && typeof setInvoiceCustomerType === 'function') {
+                    setInvoiceCustomerType(savedType);
+                }
+            }
+
             if(currentActiveView === 'quoting') triggerQuoteAutoSave();
             if(currentActiveView === 'service') triggerServiceAutoSave();
         }
@@ -1618,6 +1684,17 @@
                 numInput.value = db[name].id;
             } else if (numInput.value === "" || numInput.value === "Auto-generated") {
                 numInput.value = `CST-${Math.floor(1000 + Math.random() * 9000)}`;
+            }
+
+            // Auto-apply the customer's saved type (Residential / Commercial) so
+            // the labor rate matches without the dispatcher needing to re-toggle.
+            const savedType = db[name] && db[name].customerType;
+            if (savedType === "Residential" || savedType === "Commercial") {
+                if (context === 'quoting' && typeof setQuoteCustomerType === 'function') {
+                    setQuoteCustomerType(savedType, { silent: true });
+                } else if (context === 'invoice' && typeof setInvoiceCustomerType === 'function') {
+                    setInvoiceCustomerType(savedType);
+                }
             }
         }
 
@@ -2101,6 +2178,7 @@
             document.getElementById('requoteNoteHistory').value = "";
             document.getElementById('newRequoteNote').value = "";
             document.getElementById('laborHoursInput').value = "1.0";
+            setQuoteCustomerType('Commercial', { silent: true });
             handleQuoteStatusChange(); 
             
             document.getElementById('partsContainer').innerHTML = `
@@ -2110,6 +2188,45 @@
             addPartRow(); setDates(); setNextQuoteNumber(); 
             document.getElementById('resultsSection').style.display = 'none';
             document.getElementById('mainFormContainer').scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+
+        // ====================================================================
+        // --- CUSTOMER TYPE TOGGLE (Residential $125/hr | Commercial $175/hr) ---
+        // ====================================================================
+        const CUSTOMER_TYPE_RATES = { Residential: 125.00, Commercial: 175.00 };
+
+        function _paintTypeToggle(hiddenInputId, type) {
+            const hidden = document.getElementById(hiddenInputId);
+            if (!hidden) return;
+            const toggle = hidden.parentElement.querySelector('.cust-type-toggle');
+            if (!toggle) return;
+            toggle.querySelectorAll('.cust-type-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.type === type);
+            });
+        }
+
+        // Pass { preserveRate: true } when restoring a saved record where the
+        // dispatcher may have manually overridden the labor rate.
+        function setQuoteCustomerType(type, opts) {
+            opts = opts || {};
+            if (!CUSTOMER_TYPE_RATES.hasOwnProperty(type)) type = 'Commercial';
+            document.getElementById('customerTypeInput').value = type;
+            if (!opts.preserveRate) {
+                document.getElementById('laborRateInput').value = CUSTOMER_TYPE_RATES[type].toFixed(2);
+            }
+            _paintTypeToggle('customerTypeInput', type);
+            if (!opts.silent && typeof triggerQuoteAutoSave === 'function') triggerQuoteAutoSave();
+        }
+
+        function setInvoiceCustomerType(type, opts) {
+            opts = opts || {};
+            if (!CUSTOMER_TYPE_RATES.hasOwnProperty(type)) type = 'Commercial';
+            document.getElementById('invCustomerTypeInput').value = type;
+            if (!opts.preserveRate) {
+                document.getElementById('invLaborRate').value = CUSTOMER_TYPE_RATES[type].toFixed(2);
+            }
+            _paintTypeToggle('invCustomerTypeInput', type);
+            if (typeof calcInvoice === 'function') calcInvoice();
         }
 
         function addPartRow() {
@@ -2183,6 +2300,7 @@
                 requoteNote: document.getElementById('requoteNoteHistory').value, 
                 quoteDate: document.getElementById('quoteDateInput').value,
                 dueDate: document.getElementById('dueDateInput').value,
+                customerType: document.getElementById('customerTypeInput').value || "Commercial",
                 laborHours, laborRate, truckCharge, totalLaborAmount, parts: partsData, subtotal, tax, grandTotal
             };
         }
@@ -2367,6 +2485,14 @@
             document.getElementById('laborRateInput').value = quote.laborRate;
             document.getElementById('truckChargeInput').value = quote.truckCharge;
 
+            // Restore the customer-type toggle. If the saved record has no
+            // customerType (older quotes), infer from the stored labor rate.
+            let savedType = quote.customerType;
+            if (savedType !== "Residential" && savedType !== "Commercial") {
+                savedType = Math.abs(quote.laborRate - 125) < 0.01 ? "Residential" : "Commercial";
+            }
+            setQuoteCustomerType(savedType, { silent: true, preserveRate: true });
+
             document.getElementById('partsContainer').innerHTML = `<div class="parts-grid-layout part-header-row"><label>QTY</label><label>Part Description</label><label>Part Number</label><label>Vendor</label><label>Lead Time (Days)</label><label>Our Cost $</label><label></label></div>`;
             quote.parts.forEach(p => {
                 const row = document.createElement('div'); row.className = 'parts-grid-layout part-row part-entry-line';
@@ -2443,6 +2569,6 @@
         }
 
     </script>
-    <script src="invoice.js?v=9"></script>
+    <script src="invoice.js?v=10"></script>
 </body>
 </html>

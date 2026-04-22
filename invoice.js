@@ -19,7 +19,8 @@ function clearInvoiceForm() {
     document.getElementById('invNotes').value = "";
     document.getElementById('invWork').value = "";
     document.getElementById('invLaborHours').value = "1.0";
-    
+    if (typeof setInvoiceCustomerType === 'function') setInvoiceCustomerType('Commercial');
+
     document.getElementById('invCustNameInput').style.backgroundColor = "";
     document.getElementById('invStreetInput').style.backgroundColor = "";
     if(document.getElementById('invCustWarning')) document.getElementById('invCustWarning').remove();
