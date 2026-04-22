@@ -2121,9 +2121,16 @@
         }
 
         function getMarkupPercentage(cost) {
-            if (cost <= 5) return 4.00; if (cost <= 10) return 3.00; if (cost <= 15) return 2.00;     
-            if (cost <= 100) return 1.50; if (cost <= 500) return 1.00; if (cost <= 1000) return 0.85;   
-            if (cost <= 1500) return 0.75; return 0.65;                      
+            if (cost <= 5) return 4.00;
+            if (cost <= 10) return 3.00;
+            if (cost <= 15) return 2.00;
+            if (cost <= 100) return 1.50;
+            if (cost <= 500) return 1.00;
+            if (cost <= 1000) return 0.70;
+            if (cost <= 1250) return 0.50;
+            if (cost <= 1500) return 0.45;
+            if (cost <= 3000) return 0.40;
+            return 0.30;
         }
 
         function gatherFormData() {
@@ -2396,12 +2403,14 @@
             if (cost <= 15) return 2.00;
             if (cost <= 100) return 1.50;
             if (cost <= 500) return 1.00;
-            if (cost <= 1000) return 0.85;
-            if (cost <= 1500) return 0.75;
-            return 0.65;
+            if (cost <= 1000) return 0.70;
+            if (cost <= 1250) return 0.50;
+            if (cost <= 1500) return 0.45;
+            if (cost <= 3000) return 0.40;
+            return 0.30;
         }
 
     </script>
-    <script src="invoice.js?v=8"></script>
+    <script src="invoice.js?v=9"></script>
 </body>
 </html>
