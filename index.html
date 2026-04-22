@@ -658,8 +658,9 @@
                     <button class="add-part-btn" onclick="addPartRow()">+ Add Part</button>
                 </div>
 
-                <div class="action-bar">
+                <div class="action-bar" style="display: flex; flex-direction: column; align-items: center; gap: 6px;">
                     <button class="generate-btn" onclick="createQuote()">Preview Quote</button>
+                    <small style="color:#555; font-size:12px;">Saves automatically to the Recent Quotes Database on this computer before opening the preview.</small>
                 </div>
             </div>
 
@@ -2398,11 +2399,11 @@
             let db = JSON.parse(localStorage.getItem('twinPillarsQuotesDB') || '[]');
             if (data.id) {
                 const index = db.findIndex(q => q.id === data.id);
-                if (index !== -1) { db[index] = data; if(!silent) showSaveCue("✓ Quote Updated!"); }
+                if (index !== -1) { db[index] = data; if(!silent) showSaveCue(`✓ Saved to Recent Quotes — ${data.quoteNum} (updated)`); }
             } else {
                 data.id = 'DB-ID-' + Date.now(); db.push(data);
-                document.getElementById('currentQuoteId').value = data.id; incrementQuoteNumber(); 
-                if(!silent) showSaveCue(`✓ New Quote Created! (${data.quoteNum})`); 
+                document.getElementById('currentQuoteId').value = data.id; incrementQuoteNumber();
+                if(!silent) showSaveCue(`✓ Saved to Recent Quotes — ${data.quoteNum} (new)`);
             }
             localStorage.setItem('twinPillarsQuotesDB', JSON.stringify(db));
             renderQuoteHistory();
