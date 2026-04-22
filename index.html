@@ -659,7 +659,7 @@
                 </div>
 
                 <div class="action-bar">
-                    <button class="generate-btn" onclick="createQuote()">Create Quote</button>
+                    <button class="generate-btn" onclick="createQuote()">Preview Quote</button>
                 </div>
             </div>
 
@@ -2377,10 +2377,10 @@
 
         function createQuote() {
             const savedSuccessfully = saveQuoteToDatabase(false, false);
-            if (!savedSuccessfully) return; 
-            updatePreviewHTML(); 
+            if (!savedSuccessfully) return;
+            updatePreviewHTML();
             document.getElementById('resultsSection').style.display = 'block';
-            document.getElementById('internalView').scrollIntoView({ behavior: 'smooth', block: 'start' });
+            showQuotePreview();
         }
         
         function saveQuoteToDatabase(silent = false, isAutoSave = false) {
