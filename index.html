@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dispatcher Portal | Twin Pillars Heating & Cooling</title>
+    <title>Dispatcher Portal | USA Heating & Cooling</title>
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 
@@ -151,6 +151,8 @@
         .edit-btn { background: #3498db; color: #fff; border: none; padding: 6px 12px; font-size: 12px; margin-right: 5px;}
         .delete-btn { background: #e74c3c; color: #fff; border: none; padding: 6px 12px; font-size: 12px; cursor: pointer;}
         .delete-btn:hover { background: #c0392b; }
+        .resubmit-btn { background: #27ae60; color: #fff; border: none; padding: 6px 12px; font-size: 12px; margin-right: 5px; cursor: pointer; font-weight: bold;}
+        .resubmit-btn:hover { background: #1e8449; }
 
         @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
 
@@ -259,6 +261,23 @@
         .footer-terms { font-size: 13px; color: #555; margin-bottom: 40px; }
         .signature-line { border-top: 2px solid #ccc; width: 40%; text-align: center; font-size: 12px; color: #777; padding-top: 5px; margin-top: 5px; }
 
+        /* Legacy Twin Pillars Heating & Cooling preview/print palette. Applied
+           ONLY when #customerQuoteView has the .brand-tphc class (set by
+           applyQuoteBrand('TPHC') for quotes that were deliberately kept
+           under the legacy schema via the Resubmit flow). This scope affects
+           ONLY the quote preview — the rest of the app (sidebar, nav,
+           dashboards, recent-quotes table, invoice builder) always stays on
+           the USA Heating & Cooling palette. New quotes never reach this
+           code path; only resubmitted quotes can opt into it. */
+        #customerQuoteView.brand-tphc .print-title,
+        #customerQuoteView.brand-tphc .info-label,
+        #customerQuoteView.brand-tphc h1,
+        #customerQuoteView.brand-tphc h2,
+        #customerQuoteView.brand-tphc h3,
+        #customerQuoteView.brand-tphc h4 { color: #1e4b85 !important; }
+        #customerQuoteView.brand-tphc .print-table.quote-style th { background-color: #c89b53 !important; color: #fff !important; }
+        #customerQuoteView.brand-tphc .final-total { background-color: #1e4b85 !important; color: #fff !important; }
+
         .inv-tear-off { border-top: 2px dashed #000; padding-top: 40px; margin-top: 60px; display: flex; justify-content: space-between; }
         .inv-tear-left h4 { margin: 0 0 5px 0; font-size: 18px; }
         .inv-tear-left p { margin: 2px 0; font-size: 14px; }
@@ -320,7 +339,7 @@
             <li><a onclick="openCustomerDirectory()">Customer Directory</a></li>
         </ul>
         <div class="sidebar-footer">
-            Twin Pillars Heating & Cooling<br>Dispatcher Portal v4.0
+            USA Heating & Cooling<br>Dispatcher Portal v4.0
         </div>
     </div>
 
@@ -506,6 +525,7 @@
                 </div>
 
                 <input type="hidden" id="currentQuoteId" value="">
+                <input type="hidden" id="brandModeInput" value="USA">
 
                 <div class="form-section">
                     <h4>1. Client & Location Details</h4>
@@ -673,12 +693,12 @@
                 <div id="customerQuoteView" class="document-print-view">
                     <div class="print-header">
                         <div class="comp-info">
-                            <strong>Twin Pillars Heating & Cooling</strong><br>
+                            <strong id="printHeaderCompanyName">USA Heating & Cooling</strong><br>
                             2944 Holmgren Way<br>
                             Green Bay, WI 54304
                         </div>
                         <div class="print-logo">
-                            <img src="USA_logo.png" alt="Company Print Logo">
+                            <img id="printHeaderLogo" src="USA_logo.png" alt="Company Print Logo">
                         </div>
                     </div>
                     
@@ -730,7 +750,7 @@
                     <div class="footer-terms">
                         <strong>Terms and Conditions</strong><br>
                         Payment is due in 14 days.<br>
-                        Please make checks payable to: Twin Pillars Heating & Cooling
+                        Please make checks payable to: <span id="printPayeeName">USA Heating & Cooling</span>
                     </div>
 
                     <div class="signature-line-wrapper">
@@ -952,7 +972,7 @@
                 <div id="printInvoiceView" class="document-print-view">
                     <div class="inv-header">
                         <div class="inv-company">
-                            <h2>Twin Pillars Heating & Cooling LLC</h2>
+                            <h2>USA Heating & Cooling LLC</h2>
                             <p>55 Jewelers Park Drive Suite 500</p>
                             <p>Neenah, WI 54956</p>
                             <p>920-441-5916</p>
@@ -1006,7 +1026,7 @@
 
                     <div class="inv-tear-off">
                         <div class="inv-tear-left">
-                            <h4>Twin Pillars Heating & Cooling LLC</h4>
+                            <h4>USA Heating & Cooling LLC</h4>
                             <p>55 Jewelers Park Drive Suite 500</p>
                             <p>Neenah, WI 54956</p>
                             <p>920-441-5916</p>
@@ -1030,6 +1050,43 @@
     </div> 
     
     <div id="saveIndicator">✓ Auto-Saved</div>
+
+    <!-- Resubmit brand-choice modal — the ONLY place in the app where a quote
+         can be rendered under the legacy Twin Pillars Heating & Cooling
+         schema. Brand-new quotes (startNewQuote) always use USA and never
+         reach this modal; it is opened exclusively by resubmitQuote() when
+         a dispatcher clones a past quote from the Recent Quotes Database. -->
+    <div id="resubmitBrandModal" class="modal-overlay">
+        <div class="modal-content" style="max-width: 620px;">
+            <div class="modal-header">
+                <h2>↻ Resubmit Quote — Choose Branding</h2>
+                <span class="close-modal" onclick="cancelResubmitBrand()">×</span>
+            </div>
+            <div id="resubmitBrandBody" style="font-size:14px; line-height:1.55; color:#333;">
+                <p style="margin-top:0;">
+                    You are about to resubmit <strong id="resubmitBrandSrcNum">QT-?</strong>
+                    (originally dated <span id="resubmitBrandSrcDate">?</span>)
+                    as a <strong>brand new quote</strong> with a fresh auto-incremented QT number and today's date.
+                </p>
+                <p>
+                    The original record will <strong>NOT</strong> be changed — it stays in the Recent Quotes Database exactly as it was saved.
+                </p>
+                <p style="margin-bottom:8px;"><strong>Which branding should the resubmitted quote use?</strong></p>
+                <ul style="margin-top:0;">
+                    <li><strong>Rebrand to USA Heating &amp; Cooling</strong> — USA logo, red/white/navy colors, "USA Heating &amp; Cooling" company name and payee line. <em>Recommended for all new work.</em></li>
+                    <li><strong>Keep Twin Pillars Heating &amp; Cooling</strong> — legacy logo, blue/gold colors, "Twin Pillars Heating &amp; Cooling" company name and payee line. <em>Use only when a customer specifically needs the historical branding for a resubmitted job.</em></li>
+                </ul>
+                <p style="margin-top:8px; margin-bottom:0; font-size:12px; color:#777;">
+                    New quotes always use the USA Heating &amp; Cooling schema — the legacy option is available only when resubmitting a job that was originally quoted under Twin Pillars.
+                </p>
+            </div>
+            <div style="display:flex; justify-content:flex-end; flex-wrap:wrap; gap:10px; border-top:1px solid #eaeaea; padding-top:15px;">
+                <button type="button" class="gen-btn" style="background:#7f8c8d; padding:10px 18px;" onclick="cancelResubmitBrand()">Cancel</button>
+                <button type="button" class="gen-btn" style="background:#1e4b85; color:#fff; padding:10px 18px;" onclick="chooseResubmitBrand('TPHC')" title="The cloned quote will be rendered under the legacy Twin Pillars Heating & Cooling logo, colors, and company name. Only available on resubmissions.">Keep Twin Pillars Schema</button>
+                <button type="button" class="gen-btn" style="background:#BF0A30; color:#fff; padding:10px 18px; font-weight:bold;" onclick="chooseResubmitBrand('USA')" title="The cloned quote will be rebranded to the current USA Heating & Cooling logo, colors, and company name.">Rebrand to USA Heating &amp; Cooling</button>
+            </div>
+        </div>
+    </div>
 
     <div id="ticketDetailsModal" class="modal-overlay">
         <div class="modal-content" style="max-width: 600px;">
@@ -2228,6 +2285,7 @@
             }
             
             document.getElementById('currentQuoteId').value = "";
+            document.getElementById('brandModeInput').value = "USA";
             document.getElementById('custNameInput').value = "";
             document.getElementById('custNumInput').value = "";
             document.getElementById('contactNameInput').value = "";
@@ -2364,8 +2422,45 @@
                 quoteDate: document.getElementById('quoteDateInput').value,
                 dueDate: document.getElementById('dueDateInput').value,
                 customerType: document.getElementById('customerTypeInput').value || "Commercial",
+                // brandMode is locked to "USA" for net-new quotes via
+                // startNewQuote() (which always sets #brandModeInput = "USA"),
+                // and is ONLY ever set to "TPHC" through the Resubmit brand-
+                // choice modal's "Keep Twin Pillars Schema" button. Any other
+                // value is normalized to "USA" here so a corrupted input can
+                // never emit the legacy schema accidentally.
+                brandMode: (document.getElementById('brandModeInput').value === "TPHC") ? "TPHC" : "USA",
                 laborHours, laborRate, truckCharge, totalLaborAmount, parts: partsData, subtotal, tax, grandTotal
             };
+        }
+
+        // ====================================================================
+        // --- BRAND-AWARE QUOTE PREVIEW RENDERER ---
+        // Toggles the branded elements inside #customerQuoteView between the
+        // current USA Heating & Cooling schema (the default for ALL new
+        // quotes) and the legacy Twin Pillars Heating & Cooling schema (which
+        // can ONLY be selected via the Resubmit modal's "Keep Twin Pillars
+        // Schema" button). Called by updatePreviewHTML() every time the
+        // preview is regenerated, so the rendered quote always matches the
+        // brandMode stored on the record being previewed.
+        //   mode === "USA"  → USA logo, navy/red palette, "USA Heating & Cooling"
+        //   mode === "TPHC" → legacy tphc_logo.png, blue/gold palette,
+        //                     "Twin Pillars Heating & Cooling"
+        // Only the quote preview DOM is affected — the rest of the dispatcher
+        // app chrome (sidebar, nav, recent-quotes table, invoice builder,
+        // etc.) always stays on the USA schema regardless of mode.
+        // ====================================================================
+        function applyQuoteBrand(mode) {
+            const isLegacy = (mode === "TPHC");
+            const view = document.getElementById('customerQuoteView');
+            const logo = document.getElementById('printHeaderLogo');
+            const name = document.getElementById('printHeaderCompanyName');
+            const payee = document.getElementById('printPayeeName');
+            if (!view) return;
+
+            view.classList.toggle('brand-tphc', isLegacy);
+            if (logo) logo.src = isLegacy ? "tphc_logo.png" : "USA_logo.png";
+            if (name) name.textContent = isLegacy ? "Twin Pillars Heating & Cooling" : "USA Heating & Cooling";
+            if (payee) payee.textContent = isLegacy ? "Twin Pillars Heating & Cooling" : "USA Heating & Cooling";
         }
 
         function updatePreviewHTML() {
@@ -2436,6 +2531,8 @@
             document.getElementById('printSubtotal').innerText = `$${data.subtotal.toFixed(2)}`;
             document.getElementById('printTax').innerText = `$${data.tax.toFixed(2)}`;
             document.getElementById('printGrandTotal').innerText = `$${data.grandTotal.toFixed(2)}`;
+
+            applyQuoteBrand(data.brandMode);
         }
 
         function createQuote() {
@@ -2509,6 +2606,7 @@
                         <td>${workflowText}</td>
                         <td style="text-align: center;">${statusText}</td>
                         <td>
+                            <button class="resubmit-btn" onclick="resubmitQuote('${quote.id}')" title="Clone this quote as a brand-new record with a fresh QT number. You will be asked whether to rebrand it to USA Heating &amp; Cooling (default) or keep the legacy Twin Pillars schema for a resubmitted job. The original quote stays untouched in the database.">↻ Resubmit</button>
                             <button class="edit-btn" onclick="loadQuoteForEditing('${quote.id}')">Edit</button>
                             <button class="delete-btn" onclick="deleteQuote('${quote.id}')">X</button>
                         </td>
@@ -2530,6 +2628,13 @@
             if (!quote) return;
 
             document.getElementById('currentQuoteId').value = quote.id;
+            // Restore the quote's saved brand. Net-new quotes always save as
+            // "USA" via startNewQuote(); the only way a record reaches this
+            // branch with brandMode === "TPHC" is if the dispatcher explicitly
+            // chose "Keep Twin Pillars Schema" in the Resubmit modal. Records
+            // without a brandMode field (seeded demo data, pre-rebrand saves)
+            // default to "USA" for backward compatibility.
+            document.getElementById('brandModeInput').value = (quote.brandMode === "TPHC") ? "TPHC" : "USA";
             document.getElementById('custNameInput').value = quote.customerName;
             document.getElementById('custNumInput').value = quote.customerNum;
             document.getElementById('contactNameInput').value = quote.contactName || "";
@@ -2580,6 +2685,121 @@
         }
 
         // ====================================================================
+        // --- RESUBMIT A PAST QUOTE UNDER THE USA HEATING & COOLING SCHEMA ---
+        // Clones an existing saved quote into the form as a BRAND NEW record:
+        //   • assigns the next auto-incremented QT number
+        //   • resets the quote date (today) and due date (+14 days)
+        //   • resets the status to "Pending"
+        //   • clears the currentQuoteId so the next save creates a new row
+        //   • prepends a small audit note referencing the original QT number
+        //     and date (so the new quote still carries its own history of
+        //     where it came from).
+        // Because every branded string in the print/preview output is pulled
+        // from the current HTML templates (USA Heating & Cooling), the
+        // resubmitted quote is automatically rendered under the new schema.
+        // The original quote record is NEVER modified — it stays in
+        // twinPillarsQuotesDB exactly as it was saved.
+        // ====================================================================
+        // Holds the dbId of the quote the dispatcher just pressed Resubmit on,
+        // while the brand-choice modal is open. Cleared on cancel or finalize.
+        let _pendingResubmitId = null;
+
+        function resubmitQuote(dbId) {
+            const db = JSON.parse(localStorage.getItem('twinPillarsQuotesDB') || '[]');
+            const original = db.find(q => q.id === dbId);
+            if (!original) { alert("That quote could not be found in the database."); return; }
+
+            // If the dispatcher has an in-progress quote, either save it or ask
+            // before overwriting — do this BEFORE opening the brand modal so
+            // the modal is never blocked by a conflicting draft.
+            const currentId = document.getElementById('currentQuoteId').value;
+            if (currentId !== "" && currentId !== dbId) {
+                saveQuoteToDatabase(true, false);
+            } else if (currentId === "" && document.getElementById('custNameInput').value.trim() !== "") {
+                if (!confirm("You have an unsaved quote in progress. Discard it and resubmit the selected quote instead?")) return;
+            }
+
+            // Stash which quote we're resubmitting, then open the brand-
+            // choice modal. The dispatcher must explicitly pick either:
+            //   • Rebrand to USA Heating & Cooling (recommended / default)
+            //   • Keep Twin Pillars Heating & Cooling (legacy — only shown
+            //     on resubmissions; never available for net-new quotes)
+            //   • Cancel
+            _pendingResubmitId = dbId;
+            document.getElementById('resubmitBrandSrcNum').textContent = original.quoteNum;
+            document.getElementById('resubmitBrandSrcDate').textContent = original.quoteDate;
+            document.getElementById('resubmitBrandModal').style.display = 'block';
+        }
+
+        function cancelResubmitBrand() {
+            document.getElementById('resubmitBrandModal').style.display = 'none';
+            _pendingResubmitId = null;
+        }
+
+        // Called by the two brand-choice buttons inside the resubmit modal.
+        // mode is either "USA" or "TPHC". The legacy "TPHC" path is the ONLY
+        // place in the app that can produce a Twin Pillars-branded quote; it
+        // is reachable exclusively from this modal (i.e. only on resubmit).
+        function chooseResubmitBrand(mode) {
+            if (mode !== "USA" && mode !== "TPHC") return;
+            const dbId = _pendingResubmitId;
+            document.getElementById('resubmitBrandModal').style.display = 'none';
+            _pendingResubmitId = null;
+            if (!dbId) return;
+            _finalizeResubmit(dbId, mode);
+        }
+
+        // Does the actual cloning work. Split out of resubmitQuote() so the
+        // brand-choice modal can invoke it once the dispatcher picks a brand.
+        function _finalizeResubmit(dbId, brandMode) {
+            const db = JSON.parse(localStorage.getItem('twinPillarsQuotesDB') || '[]');
+            const original = db.find(q => q.id === dbId);
+            if (!original) { alert("That quote could not be found in the database."); return; }
+
+            // Load all of the original's data into the form, reusing the editor
+            // loader so every field (customer, parts, labor, customer type,
+            // brandMode) lands in exactly the right input.
+            loadQuoteForEditing(dbId);
+
+            // Convert the loaded state into a NEW record.
+            document.getElementById('currentQuoteId').value = "";   // next save = new row
+            document.getElementById('quoteStatusInput').value = "Pending";
+            document.getElementById('jobWorkflowInput').value = "N/A";
+            handleQuoteStatusChange();
+
+            // Apply the dispatcher's brand choice. The modal is the only
+            // entry point that can set this to "TPHC".
+            document.getElementById('brandModeInput').value = (brandMode === "TPHC") ? "TPHC" : "USA";
+
+            // Fresh dates and a fresh auto-incremented quote number.
+            setDates();
+            setNextQuoteNumber();
+            const newQuoteNum = document.getElementById('quoteNumberInput').value;
+
+            // Replace the requote-note history with a single audit line so
+            // the new quote carries a clean, traceable origin without dragging
+            // forward every old note from the source quote. The line also
+            // records WHICH brand the dispatcher chose, so later readers of
+            // the record can trace the decision.
+            const brandLabel = (brandMode === "TPHC")
+                ? "kept under the legacy Twin Pillars Heating & Cooling schema"
+                : "created under the USA Heating & Cooling schema";
+            const auditLine = `[${new Date().toLocaleString()}] Resubmission of ${original.quoteNum} (originally dated ${original.quoteDate}) — ${brandLabel}.`;
+            document.getElementById('requoteNoteHistory').value = auditLine;
+            document.getElementById('newRequoteNote').value = "";
+
+            // Scroll the dispatcher to the top of the form and confirm. Also
+            // re-render the preview HTML so the chosen brand toggle takes
+            // effect immediately if the preview is already open.
+            document.getElementById('resultsSection').style.display = 'none';
+            document.getElementById('mainFormContainer').scrollIntoView({ behavior: 'smooth', block: 'start' });
+            updatePreviewHTML();
+
+            const brandCue = (brandMode === "TPHC") ? "Twin Pillars schema" : "USA Heating & Cooling schema";
+            showSaveCue(`↻ Resubmission started — ${original.quoteNum} cloned to ${newQuoteNum} (${brandCue}). Press Preview Quote to save.`);
+        }
+
+        // ====================================================================
         // --- QUOTE BACKUP (Export / Import) ---
         // Lets the dispatcher download a JSON copy of every quote saved on this
         // computer, and restore / merge a backup on any computer. Import is
@@ -2596,7 +2816,7 @@
             }
 
             const payload = {
-                format: "twinPillars.quotes.backup",
+                format: "usaHeatingCooling.quotes.backup",
                 version: 1,
                 exportedAt: new Date().toISOString(),
                 quoteCounter: localStorage.getItem('tp_quote_counter') || null,
@@ -2609,7 +2829,7 @@
             const a = document.createElement('a');
             const stamp = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
             a.href = url;
-            a.download = `twin-pillars-quotes-backup-${stamp}.json`;
+            a.download = `usa-heating-cooling-quotes-backup-${stamp}.json`;
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
@@ -2633,7 +2853,7 @@
 
                 const incomingQuotes = Array.isArray(payload) ? payload : (Array.isArray(payload.quotes) ? payload.quotes : null);
                 if (!incomingQuotes) {
-                    alert("That file does not look like a Twin Pillars quote backup. Import cancelled — no quotes were changed.");
+                    alert("That file does not look like a USA Heating & Cooling quote backup. Import cancelled — no quotes were changed.");
                     return;
                 }
 
