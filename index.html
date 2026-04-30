@@ -1894,6 +1894,33 @@
             >
               Confirm &mdash; Print / Save as PDF
             </button>
+            <!--
+              Shown ONLY when the quote being previewed is on the legacy
+              "itemized" customer layout (saved before the 2026-04-30
+              SERVICE & DISPATCH FEE rollout). Visibility is toggled by
+              showQuotePreview() based on #customerLayoutInput. Clicking
+              this button calls refactorPreviewedQuote(), which delegates
+              to refactorQuoteLayout(currentQuoteId) — i.e. the same
+              one-click upgrade flow used in the Recent Quotes table,
+              including the same detailed confirmation dialog. After a
+              confirmed refactor the preview re-renders in place with
+              the new merged-fee layout and this button hides itself.
+            -->
+            <button
+              id="quotePreviewRefactorBtn"
+              class="add-part-btn"
+              style="
+                display: none;
+                flex: 1;
+                background: #e67e22;
+                color: #fff;
+                font-weight: bold;
+              "
+              onclick="refactorPreviewedQuote()"
+              title="Refactor this quote to the new customer-facing layout. The customer-visible REPAIR LABOR row and TRUCK / DISPATCH CHARGE row will be merged into a single SERVICE & DISPATCH FEE row. Subtotal, tax, and grand total are NOT changed; the internal dispatcher view still shows the full breakdown. You will be asked to confirm before anything is changed."
+            >
+              &#8682; Refactor to New Layout
+            </button>
             <button
               class="add-part-btn"
               style="flex: 1; background: #7f8c8d; color: #fff"
@@ -5461,9 +5488,50 @@
         document.getElementById("quotePreviewBanner").style.display = "block";
         document.getElementById("quotePreviewActions").style.display = "flex";
 
+        // Reveal the in-preview "Refactor to New Layout" button only when
+        // the quote currently rendered is on the legacy itemized layout.
+        // The button stays hidden for net-new quotes and for quotes that
+        // have already been refactored, so it never appears redundantly.
+        _syncPreviewRefactorButton();
+
         document
           .getElementById("customerQuoteView")
           .scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+
+      // Mirrors the form's customerLayoutInput onto the in-preview Refactor
+      // button. Centralised so showQuotePreview() and refactorPreviewedQuote()
+      // can both keep the button in sync without duplicating the logic.
+      function _syncPreviewRefactorButton() {
+        const btn = document.getElementById("quotePreviewRefactorBtn");
+        if (!btn) return;
+        const layout = document.getElementById("customerLayoutInput").value;
+        btn.style.display = layout === "consolidated" ? "none" : "";
+      }
+
+      // Click handler for the in-preview Refactor button. Delegates the
+      // actual mutation + confirmation dialog to refactorQuoteLayout(dbId)
+      // so the dispatcher gets the SAME warning text and the SAME audit
+      // behaviour as clicking ⇪ Refactor in the Recent Quotes table. After
+      // the dialog returns we always re-render the preview and re-sync the
+      // button — if the operator cancelled, nothing visible changes; if
+      // they confirmed, the new merged-fee layout renders in place and
+      // this button hides itself because the form input is now
+      // "consolidated".
+      function refactorPreviewedQuote() {
+        const dbId = document.getElementById("currentQuoteId").value;
+        if (!dbId) {
+          alert(
+            "This quote isn't saved to the database yet, so there's nothing " +
+              "to refactor. Save it first (net-new quotes already use the " +
+              "SERVICE & DISPATCH FEE layout automatically), or load an " +
+              "existing legacy quote from the Recent Quotes table.",
+          );
+          return;
+        }
+        refactorQuoteLayout(dbId);
+        updatePreviewHTML();
+        _syncPreviewRefactorButton();
       }
 
       function confirmPrintQuote() {
