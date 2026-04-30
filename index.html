@@ -4742,21 +4742,23 @@
         const tableBody = document.getElementById("printTableBody");
         tableBody.innerHTML = "";
 
-        // Customer-facing quote shows ONE consolidated line item.
-        // Parts, labor, dispatch & truck fees are intentionally NOT itemized to the customer.
-        // The internal dispatcher view (#internalQuoteContent) still keeps the full breakdown.
-        // Lead time = longest lead time across all parts (so the customer sees a realistic ETA).
-        let maxLead = 0;
+        // Customer-facing quote: each part is shown as its own line item.
+        // Labor, dispatch & truck are rolled into a single "SERVICE & DISPATCH CHARGE"
+        // line so the customer never sees the labor breakdown. The internal dispatcher
+        // view (#internalQuoteContent) still keeps the full breakdown.
         data.parts.forEach((p) => {
-          const n = parseInt(p.lead, 10);
-          if (!isNaN(n) && n > maxLead) maxLead = n;
+          const row = document.createElement("tr");
+          row.innerHTML = `<td>${p.qty}</td><td>${p.desc}</td><td>${p.lead}</td><td>$${p.retailUnit.toFixed(2)}</td><td>$${p.retailTotal.toFixed(2)}</td>`;
+          tableBody.appendChild(row);
         });
-        const leadDisplay = maxLead > 0 ? maxLead : "N/A";
-        const summaryAmount = `$${data.subtotal.toFixed(2)}`;
 
-        const summaryRow = document.createElement("tr");
-        summaryRow.innerHTML = `<td>1</td><td>HVAC REPAIR &mdash; Includes parts, dispatch &amp; truck fees</td><td>${leadDisplay}</td><td>${summaryAmount}</td><td>${summaryAmount}</td>`;
-        tableBody.appendChild(summaryRow);
+        const serviceTotal =
+          (data.totalLaborAmount || 0) + (data.truckCharge || 0);
+        if (serviceTotal > 0) {
+          const serviceRow = document.createElement("tr");
+          serviceRow.innerHTML = `<td>1</td><td>SERVICE &amp; DISPATCH CHARGE</td><td>N/A</td><td>$${serviceTotal.toFixed(2)}</td><td>$${serviceTotal.toFixed(2)}</td>`;
+          tableBody.appendChild(serviceRow);
+        }
 
         document.getElementById("printSubtotal").innerText =
           `$${data.subtotal.toFixed(2)}`;
