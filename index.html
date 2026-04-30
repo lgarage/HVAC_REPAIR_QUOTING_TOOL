@@ -1435,6 +1435,23 @@
 
           <input type="hidden" id="currentQuoteId" value="" />
           <input type="hidden" id="brandModeInput" value="USA" />
+          <!--
+            customerLayoutInput controls how the customer-facing quote is rendered.
+              "consolidated" (default for ALL net-new quotes from 2026-04-30 onward):
+                  parts are itemized, but labor + truck/dispatch are merged into a
+                  single "SERVICE & DISPATCH FEE" row so the customer never sees the
+                  labor breakdown.
+              "itemized" (legacy — set automatically on any quote saved BEFORE this
+                  change, or any imported backup record that lacks the field):
+                  parts itemized + separate REPAIR LABOR row + separate
+                  TRUCK / DISPATCH CHARGE row, exactly as the customer originally
+                  received it.
+            loadQuoteForEditing() restores this from the saved record (defaulting
+            missing values to "itemized" for backward compatibility), and
+            startNewQuote() / _finalizeResubmit() reset it to "consolidated"
+            because resubmits become brand-new records.
+          -->
+          <input type="hidden" id="customerLayoutInput" value="consolidated" />
 
           <div class="form-section">
             <h4>1. Client & Location Details</h4>
@@ -4424,6 +4441,10 @@
 
         document.getElementById("currentQuoteId").value = "";
         document.getElementById("brandModeInput").value = "USA";
+        // Net-new quotes always use the consolidated SERVICE & DISPATCH FEE
+        // layout. Old quotes are pinned to "itemized" elsewhere
+        // (loadQuoteForEditing) so they keep their original look.
+        document.getElementById("customerLayoutInput").value = "consolidated";
         document.getElementById("custNameInput").value = "";
         document.getElementById("custNumInput").value = "";
         document.getElementById("contactNameInput").value = "";
@@ -4627,6 +4648,17 @@
             document.getElementById("brandModeInput").value === "TPHC"
               ? "TPHC"
               : "USA",
+          // customerLayout governs the customer-facing print layout. Net-new
+          // quotes are always "consolidated" (parts itemized + single SERVICE &
+          // DISPATCH FEE row). Pre-existing saved quotes are restored as
+          // "itemized" by loadQuoteForEditing() so they keep their original
+          // appearance forever. Any unexpected value falls back to "itemized"
+          // as a safe default — matching the legacy renderer.
+          customerLayout:
+            document.getElementById("customerLayoutInput").value ===
+            "consolidated"
+              ? "consolidated"
+              : "itemized",
           laborHours,
           laborRate,
           truckCharge,
@@ -4742,22 +4774,41 @@
         const tableBody = document.getElementById("printTableBody");
         tableBody.innerHTML = "";
 
-        // Customer-facing quote: each part is shown as its own line item.
-        // Labor, dispatch & truck are rolled into a single "SERVICE & DISPATCH FEE"
-        // line so the customer never sees the labor breakdown. The internal dispatcher
-        // view (#internalQuoteContent) still keeps the full breakdown.
+        // Parts are itemized in BOTH layouts — that part is unchanged.
         data.parts.forEach((p) => {
           const row = document.createElement("tr");
           row.innerHTML = `<td>${p.qty}</td><td>${p.desc}</td><td>${p.lead}</td><td>$${p.retailUnit.toFixed(2)}</td><td>$${p.retailTotal.toFixed(2)}</td>`;
           tableBody.appendChild(row);
         });
 
-        const serviceTotal =
-          (data.totalLaborAmount || 0) + (data.truckCharge || 0);
-        if (serviceTotal > 0) {
-          const serviceRow = document.createElement("tr");
-          serviceRow.innerHTML = `<td>1</td><td>SERVICE &amp; DISPATCH FEE</td><td>N/A</td><td>$${serviceTotal.toFixed(2)}</td><td>$${serviceTotal.toFixed(2)}</td>`;
-          tableBody.appendChild(serviceRow);
+        // Customer-facing labor / dispatch / truck rendering is layout-aware:
+        //   "consolidated" (default for net-new quotes from 2026-04-30 onward):
+        //       merge labor + truck into a single SERVICE & DISPATCH FEE row
+        //       so the customer never sees the labor breakdown.
+        //   "itemized" (legacy — any quote saved BEFORE the rollout, plus
+        //       imported backups without the field): show separate REPAIR
+        //       LABOR and TRUCK / DISPATCH CHARGE rows exactly as the
+        //       customer originally received them.
+        // Subtotal / tax / grand total are identical either way.
+        if (data.customerLayout === "consolidated") {
+          const serviceTotal =
+            (data.totalLaborAmount || 0) + (data.truckCharge || 0);
+          if (serviceTotal > 0) {
+            const serviceRow = document.createElement("tr");
+            serviceRow.innerHTML = `<td>1</td><td>SERVICE &amp; DISPATCH FEE</td><td>N/A</td><td>$${serviceTotal.toFixed(2)}</td><td>$${serviceTotal.toFixed(2)}</td>`;
+            tableBody.appendChild(serviceRow);
+          }
+        } else {
+          if (data.totalLaborAmount > 0) {
+            const laborRow = document.createElement("tr");
+            laborRow.innerHTML = `<td>${data.laborHours}</td><td>REPAIR LABOR</td><td>N/A</td><td></td><td>$${data.totalLaborAmount.toFixed(2)}</td>`;
+            tableBody.appendChild(laborRow);
+          }
+          if (data.truckCharge > 0) {
+            const truckRow = document.createElement("tr");
+            truckRow.innerHTML = `<td>1</td><td>TRUCK / DISPATCH CHARGE</td><td>N/A</td><td></td><td>$${data.truckCharge.toFixed(2)}</td>`;
+            tableBody.appendChild(truckRow);
+          }
         }
 
         document.getElementById("printSubtotal").innerText =
@@ -4908,6 +4959,17 @@
         // default to "USA" for backward compatibility.
         document.getElementById("brandModeInput").value =
           quote.brandMode === "TPHC" ? "TPHC" : "USA";
+        // Restore the customer-facing layout. Quotes saved BEFORE the
+        // 2026-04-30 SERVICE & DISPATCH FEE rollout do not carry a
+        // customerLayout field — those records are kept on the legacy
+        // "itemized" renderer (separate REPAIR LABOR + TRUCK / DISPATCH
+        // CHARGE rows) so the customer always sees exactly what they
+        // originally received. Only records explicitly tagged
+        // "consolidated" use the new merged-fee layout.
+        document.getElementById("customerLayoutInput").value =
+          quote.customerLayout === "consolidated"
+            ? "consolidated"
+            : "itemized";
         document.getElementById("custNameInput").value = quote.customerName;
         document.getElementById("custNumInput").value = quote.customerNum;
         document.getElementById("contactNameInput").value =
@@ -5078,6 +5140,13 @@
         // entry point that can set this to "TPHC".
         document.getElementById("brandModeInput").value =
           brandMode === "TPHC" ? "TPHC" : "USA";
+
+        // A resubmission becomes a BRAND NEW record with a fresh QT number,
+        // so it adopts the current customer-facing layout (consolidated
+        // SERVICE & DISPATCH FEE) regardless of what the source quote used.
+        // The original quote in the database is untouched and keeps its
+        // own customerLayout value.
+        document.getElementById("customerLayoutInput").value = "consolidated";
 
         // Fresh dates and a fresh auto-incremented quote number.
         setDates();
