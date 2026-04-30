@@ -4743,7 +4743,7 @@
         tableBody.innerHTML = "";
 
         // Customer-facing quote: each part is shown as its own line item.
-        // Labor, dispatch & truck are rolled into a single "SERVICE & DISPATCH CHARGE"
+        // Labor, dispatch & truck are rolled into a single "SERVICE & DISPATCH FEE"
         // line so the customer never sees the labor breakdown. The internal dispatcher
         // view (#internalQuoteContent) still keeps the full breakdown.
         data.parts.forEach((p) => {
@@ -4756,7 +4756,7 @@
           (data.totalLaborAmount || 0) + (data.truckCharge || 0);
         if (serviceTotal > 0) {
           const serviceRow = document.createElement("tr");
-          serviceRow.innerHTML = `<td>1</td><td>SERVICE &amp; DISPATCH CHARGE</td><td>N/A</td><td>$${serviceTotal.toFixed(2)}</td><td>$${serviceTotal.toFixed(2)}</td>`;
+          serviceRow.innerHTML = `<td>1</td><td>SERVICE &amp; DISPATCH FEE</td><td>N/A</td><td>$${serviceTotal.toFixed(2)}</td><td>$${serviceTotal.toFixed(2)}</td>`;
           tableBody.appendChild(serviceRow);
         }
 
