@@ -394,6 +394,25 @@
       .resubmit-btn:hover {
         background: #1e8449;
       }
+      /* Shown only on legacy "itemized" quotes (those saved before the
+         2026-04-30 SERVICE & DISPATCH FEE rollout). Clicking it converts
+         that single quote to the new consolidated customer-facing layout
+         after an explicit confirmation dialog. The orange/amber color is
+         intentional — it signals an optional one-way upgrade action that
+         is distinct from Resubmit (green) and Edit (blue). */
+      .refactor-btn {
+        background: #e67e22;
+        color: #fff;
+        border: none;
+        padding: 6px 12px;
+        font-size: 12px;
+        margin-right: 5px;
+        cursor: pointer;
+        font-weight: bold;
+      }
+      .refactor-btn:hover {
+        background: #c46715;
+      }
 
       @keyframes pulse {
         0% {
@@ -4916,6 +4935,18 @@
           if (subLocStr.trim() !== "")
             tableLoc += `<br><span style="font-size:11px; color:#777;">${subLocStr}</span>`;
 
+          // Refactor button is shown ONLY for legacy "itemized" quotes
+          // (records saved before the 2026-04-30 SERVICE & DISPATCH FEE
+          // rollout, or anything imported without a customerLayout field).
+          // Clicking it converts that single quote to the new consolidated
+          // customer-facing layout after an explicit confirmation dialog.
+          // Quotes already on "consolidated" do not show this button so
+          // the operator can never accidentally re-refactor them.
+          const refactorBtn =
+            quote.customerLayout === "consolidated"
+              ? ""
+              : `<button class="refactor-btn" onclick="refactorQuoteLayout('${quote.id}')" title="Refactor this legacy quote to the new customer-facing layout. The customer-visible REPAIR LABOR row and TRUCK / DISPATCH CHARGE row will be merged into a single SERVICE & DISPATCH FEE row. Subtotal, tax, and grand total are NOT changed; the internal dispatcher view still shows the full breakdown. You will be asked to confirm before anything is changed.">⇪ Refactor</button>`;
+
           tableBody.innerHTML += `
                     <tr>
                         <td><button class="preview-btn" onclick="previewQuote('${quote.id}')">Preview</button></td>
@@ -4928,6 +4959,7 @@
                         <td style="text-align: center;">${statusText}</td>
                         <td>
                             <button class="resubmit-btn" onclick="resubmitQuote('${quote.id}')" title="Clone this quote as a brand-new record with a fresh QT number. You will be asked whether to rebrand it to USA Heating &amp; Cooling (default) or keep the legacy Twin Pillars schema for a resubmitted job. The original quote stays untouched in the database.">↻ Resubmit</button>
+                            ${refactorBtn}
                             <button class="edit-btn" onclick="loadQuoteForEditing('${quote.id}')">Edit</button>
                             <button class="delete-btn" onclick="deleteQuote('${quote.id}')">X</button>
                         </td>
@@ -5030,6 +5062,83 @@
           db = db.filter((q) => q.id !== dbId);
           localStorage.setItem("twinPillarsQuotesDB", JSON.stringify(db));
           renderQuoteHistory();
+        }
+      }
+
+      // ====================================================================
+      // --- ONE-CLICK REFACTOR: legacy "itemized" → new "consolidated" ---
+      // Mutates a SINGLE saved quote in place, flipping its customerLayout
+      // from "itemized" (separate REPAIR LABOR + TRUCK / DISPATCH CHARGE
+      // rows) to "consolidated" (one merged SERVICE & DISPATCH FEE row).
+      //
+      // The dispatcher MUST confirm a detailed dialog that explains:
+      //   • exactly which line items will collapse (with dollar amounts),
+      //   • that totals / tax / grand total are NOT touched,
+      //   • that the internal dispatcher view keeps the full breakdown,
+      //   • that the change applies to that one quote only.
+      //
+      // No other record is affected. The button that calls this only
+      // appears in the Recent Quotes table for rows whose customerLayout
+      // is not "consolidated", so the operator can never accidentally
+      // re-refactor a record that's already on the new layout.
+      // ====================================================================
+      function refactorQuoteLayout(dbId) {
+        let db = JSON.parse(
+          localStorage.getItem("twinPillarsQuotesDB") || "[]",
+        );
+        const idx = db.findIndex((q) => q.id === dbId);
+        if (idx === -1) {
+          alert("That quote could not be found in the database.");
+          return;
+        }
+        const quote = db[idx];
+
+        if (quote.customerLayout === "consolidated") {
+          alert(
+            `${quote.quoteNum} is already on the new SERVICE & DISPATCH FEE layout. No change needed.`,
+          );
+          return;
+        }
+
+        const laborTotal = quote.totalLaborAmount || 0;
+        const truckCharge = quote.truckCharge || 0;
+        const combinedFee = laborTotal + truckCharge;
+
+        const msg =
+          `Refactor ${quote.quoteNum} (${quote.customerName}) to the new ` +
+          `customer-facing layout?\n\n` +
+          `WHAT THE CUSTOMER WILL SEE CHANGE:\n` +
+          `  • The "REPAIR LABOR" row ($${laborTotal.toFixed(2)}) will be removed.\n` +
+          `  • The "TRUCK / DISPATCH CHARGE" row ($${truckCharge.toFixed(2)}) will be removed.\n` +
+          `  • A single "SERVICE & DISPATCH FEE" row totaling ` +
+          `$${combinedFee.toFixed(2)} will replace them.\n\n` +
+          `WHAT STAYS EXACTLY THE SAME:\n` +
+          `  • Subtotal, sales tax (5.5%), and grand total — identical.\n` +
+          `  • Your internal dispatcher view still shows the full labor + ` +
+          `truck breakdown.\n` +
+          `  • Hours, rate, parts, vendors, markups, and every other saved ` +
+          `field — preserved.\n\n` +
+          `This change applies to THIS one quote only. Continue?`;
+
+        if (!confirm(msg)) return;
+
+        quote.customerLayout = "consolidated";
+        db[idx] = quote;
+        localStorage.setItem("twinPillarsQuotesDB", JSON.stringify(db));
+
+        // If this quote is the one currently loaded into the editor,
+        // sync the hidden input so the next preview / autosave reflects
+        // the new layout immediately (instead of needing a page reload).
+        if (document.getElementById("currentQuoteId").value === dbId) {
+          document.getElementById("customerLayoutInput").value =
+            "consolidated";
+        }
+
+        renderQuoteHistory();
+        if (typeof showSaveCue === "function") {
+          showSaveCue(
+            `✓ ${quote.quoteNum} refactored to the new SERVICE & DISPATCH FEE layout`,
+          );
         }
       }
 
