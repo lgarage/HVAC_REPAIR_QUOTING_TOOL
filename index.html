@@ -65,7 +65,7 @@
         ):not(#scIssueInput):not(#scNotesInput):not(#invPasteArea),
       textarea:not(#requoteNoteHistory):not(#scIssueInput):not(
           #scNotesInput
-        ):not(#invPasteArea) {
+        ):not(#invPasteArea):not(#workScopeInput) {
         text-transform: uppercase;
       }
       #customerSearch,
@@ -1721,7 +1721,20 @@
           </div>
 
           <div class="form-section">
-            <h4>4. Parts List</h4>
+            <h4>4. Work to be Done</h4>
+            <div class="input-group">
+              <label>Work to be completed / scope</label>
+              <textarea
+                id="workScopeInput"
+                rows="5"
+                placeholder="Describe the work to be performed, scope of repair, equipment involved, etc."
+                style="width:100%; resize:vertical; font-family:inherit; font-size:14px; line-height:1.5;"
+              ></textarea>
+            </div>
+          </div>
+
+          <div class="form-section">
+            <h4>5. Parts List</h4>
             <div id="partsContainer">
               <div class="parts-grid-layout part-header-row">
                 <label>QTY</label><label>Part Description</label
@@ -1813,6 +1826,36 @@
                 <span style="font-weight: bold">Status:</span>
                 <span id="printQuoteStatus"></span>
               </div>
+            </div>
+
+            <div
+              id="printWorkScopeSection"
+              style="
+                display: none;
+                margin: 14px 0 12px;
+                padding: 10px 13px;
+                border: 1px solid #c8d4e8;
+                border-radius: 4px;
+                background: #f7f9fc;
+                page-break-inside: avoid;
+              "
+            >
+              <div
+                style="
+                  font-weight: bold;
+                  font-size: 11px;
+                  text-transform: uppercase;
+                  letter-spacing: 0.05em;
+                  color: #0a3161;
+                  margin-bottom: 6px;
+                "
+              >
+                Work to be Completed
+              </div>
+              <div
+                id="printWorkScopeText"
+                style="font-size: 13px; white-space: pre-wrap; line-height: 1.55; color: #222;"
+              ></div>
             </div>
 
             <table class="print-table quote-style">
@@ -4507,6 +4550,7 @@
         document.getElementById("jobWorkflowInput").value = "N/A";
         document.getElementById("requoteNoteHistory").value = "";
         document.getElementById("newRequoteNote").value = "";
+        document.getElementById("workScopeInput").value = "";
         document.getElementById("laborHoursInput").value = "1.0";
         setQuoteCustomerType("Commercial", { silent: true });
         handleQuoteStatusChange();
@@ -4766,6 +4810,7 @@
           status: document.getElementById("quoteStatusInput").value,
           jobWorkflow: document.getElementById("jobWorkflowInput").value,
           requoteNote: document.getElementById("requoteNoteHistory").value,
+          workScope: document.getElementById("workScopeInput").value.trim(),
           quoteDate: document.getElementById("quoteDateInput").value,
           dueDate: document.getElementById("dueDateInput").value,
           customerType:
@@ -4864,6 +4909,7 @@
                 <p><strong>Location:</strong> ${fullAddressString} ${finalCityStateStr} ${contactHTML}</p>
                 <p><strong>Repair Labor:</strong> ${data.laborHours} hrs @ $${data.laborRate.toFixed(2)}/hr = <strong>$${data.totalLaborAmount.toFixed(2)}</strong></p>
                 <p><strong>Truck Charge:</strong> <strong>$${data.truckCharge.toFixed(2)}</strong></p>
+                ${data.workScope ? `<div style="margin:10px 0;"><strong>Work to be Completed:</strong><pre style="margin:4px 0; font-family:inherit; white-space:pre-wrap; background:#f7f9fc; border:1px solid #c8d4e8; padding:8px 10px; border-radius:4px; font-size:13px; line-height:1.5;">${data.workScope}</pre></div>` : ""}
                 <h4>Parts Detailed List:</h4>
                 <table class="internal-table">
                     <thead><tr><th>QTY</th><th>Description (Num)</th><th>Vendor</th><th>Lead Time (Days)</th><th>Our Cost</th><th>Markup %</th><th>Unit Retail</th><th>Total Retail</th></tr></thead>
@@ -4949,6 +4995,17 @@
           `$${data.tax.toFixed(2)}`;
         document.getElementById("printGrandTotal").innerText =
           `$${data.grandTotal.toFixed(2)}`;
+
+        const wsSection = document.getElementById("printWorkScopeSection");
+        const wsText = document.getElementById("printWorkScopeText");
+        if (wsSection && wsText) {
+          if (data.workScope && data.workScope.trim() !== "") {
+            wsText.textContent = data.workScope;
+            wsSection.style.display = "block";
+          } else {
+            wsSection.style.display = "none";
+          }
+        }
 
         applyQuoteBrand(data.brandMode);
       }
@@ -5132,6 +5189,8 @@
         document.getElementById("requoteNoteHistory").value =
           quote.requoteNote || "";
         document.getElementById("newRequoteNote").value = "";
+        document.getElementById("workScopeInput").value =
+          quote.workScope || "";
         handleQuoteStatusChange();
         updateLocationDatalist();
 

@@ -73,6 +73,7 @@ All three form views share a common customer-lookup system (`customerNamesList` 
   quoteDate, dueDate,
   customerType,          // "Residential" | "Commercial"  (added Apr 2026)
   laborHours, laborRate, truckCharge, totalLaborAmount,
+  workScope,             // string — "Work to be completed / scope" free-text; optional; shown above parts in customer PDF + internal view
   parts: [ { qty, desc, num, vendor, lead, cost, markupPercent (% string — suggested from tier but user-editable; stored as applied), retailUnit, retailTotal } ],
   subtotal, tax, grandTotal
 }
@@ -186,6 +187,8 @@ The CSS that makes this work is the `.document-print-view` / `.document-print-vi
 ## 10. Build history / completed phases
 
 ### April 2026
+
+- **Quoting Tool — "Work to be Done" section (Section 4, Parts → Section 5).** New `<textarea id="workScopeInput">` (excluded from auto-uppercase) persisted on quote records as `workScope`. Cleared by `startNewQuote()`, restored by `loadQuoteForEditing()`. On Preview/Print: `#printWorkScopeSection` div (with `#printWorkScopeText`) renders above the parts table on the **customer-facing PDF** and internal dispatcher view. Hidden when blank. Files: **`index.html`**.
 
 - **Mandatory model gate (.cursorrules §4).** Before substantive work—editing **`index.html`**, **`invoice.js`**, **`technician/`**, hooks, dossier rules, roadmap for a delivering change, or running repo-changing destructive/install shell—agents must answer first with a **§6B** block (**LOW | HIGH | UNCERTAIN**, archetype **T0–T4**, **`MODEL_DOSSIER.md`** skim §1–§3 + **`grep`** §5 when useful), **recommended Cursor model picker**, **confidence %**, then **stop** until you confirm **`Model switched — proceed`**, **`Override: … — proceed`**, or **`Pre-approved model: … — proceed`**. **Bypass** only if your message already includes one of those lines, or you asked for **purely read-only** Q&A. Files: `.cursorrules`, **`MODEL_DOSSIER.md`** (§6B).
 
