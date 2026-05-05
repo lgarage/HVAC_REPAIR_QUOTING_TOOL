@@ -24,7 +24,30 @@ When updating the roadmap, strictly maintain these sections:
 - **Mobile First for Field App:** Any UI changes to the Technician app must be heavily optimized for iOS Safari and Android Chrome viewports (e.g., avoid `outline` on `<body>`, prefer fixed overlays, handle safe-area insets).
 - **Data Sync:** When building features that span both apps, prioritize real-time sync using Firestore `onSnapshot` listeners over manual refreshes.
 
-## 4. Output Format
+## 4. Model gate — STOP before substantive work
+
+**Binding.** Before **any implementation**—editing files (`index.html`, `invoice.js`, `technician/` assets, configs, hooks, rules, dossier), mutating roadmap for a delivering change, or running repo-changing / install / destructive shell commands—you **pause**.
+
+**First reply** (still allowed to **read**/search the codebase briefly to classify the task) must:
+
+1. Open with a **§6B-style block**: task classification **LOW | HIGH | UNCERTAIN**, **archetype T0–T4** (when useful), **`MODEL_DOSSIER.md` §1–§3 skim** (`grep §5` for similar past outcomes when applicable), **Recommended Cursor model picker** (exact name from dossier §1 when filled—otherwise cite the dossier heuristic tier).
+2. **Confidence %** and one-line **reason**.
+3. **STOP**—state clearly that you **will not** implement until the user confirms with **one** of:
+   - `Model switched — proceed`
+   - `Override: … — proceed`
+   - `Pre-approved model: … — proceed`
+
+Treat **HIGH** / **UNCERTAIN** aggressively (Firestore invoice sync, quoting/money regressions, schema/security, ambiguous multi-flow changes)—recommend **Strong** (Sonnet-/Opus-/Codex-class per dossier).
+**LOW / T0–T1**: still issue the §6B line and wait; optionally note the user **may switch down** to a cheaper picker if escalation rules don’t block.
+
+**Bypass this section** only when:
+
+- The user’s **same message** already includes one of the three gate phrases above (or verbatim equivalent naming the picker and “proceed”); or
+- The user is asking for **purely read-only** help (concept Q&A only, no edits, no “fix this”), in which case a short picker note is optional and no gate is needed.
+
+Full reference: **`MODEL_DOSSIER.md`** (§6B, archetypes §2–§3). After completing substantive work worthy of remembering, append **one row** to `MODEL_DOSSIER.md §5` per dossier norms.
+
+## 5. Output Format
 
 When responding to the user after executing a task:
 

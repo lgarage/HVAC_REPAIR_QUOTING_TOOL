@@ -72,14 +72,16 @@ Tune false positives / misses by editing `FAILURE_HINT_RE` in `.cursor/hooks/con
 
 ## §6B-style opener (before substantive implementation)
 
-Each implementation turn should briefly state:
+**Project enforcement:** `.cursorrules` §4 — agents **must STOP** after this block and wait for gate confirmation **before** any file edits, roadmap updates for deliveries, or mutating commands. Exceptions: purely read-only Q&A without change requests; or user’s message already contained a gate phrase.
+
+Each implementation-classified turn opens with:
 
 - Task classification **LOW | HIGH | UNCERTAIN**
 - **Archetype** T0–T4 (if helpful)
-- **Recommended model** (exact picker string from §1 once skimmed)
+- **Recommended model** (exact picker string from §1 once skimmed — else dossier heuristic)
 - **Confidence %** + one-line **reason**
 
-**Model gates** (explicit one-liner acceptable): **Model switched — proceed** | **Override: … — proceed** | **Pre-approved model: … — proceed**
+**Model gates** (user confirms one exact line — then agent may execute): **Model switched — proceed** | **Override: … — proceed** | **Pre-approved model: … — proceed**
 
 ---
 
@@ -104,3 +106,4 @@ _Newest rows at bottom._
 | 2026-05-04 | Initialize MODEL_DOSSIER: §1 skim placeholder, archetypes §2–§3, §6B + logging norms §4, bootstrap §5 | LOW | T1 | Composer 2 | 90 | Repo root dossier authored; roadmap §2 mentions file. User must paste §1 from Settings → Models. |
 | 2026-05-04 | Cursor hooks auto-update empirical model confidence (`stop` implicit OK / `beforeSubmitPrompt` regex pushback → rewrite § hook table + `.cursor/confidence-metrics.json`) | LOW | T2 | Sonnet-class | 85 | Ships `.cursor/hooks.json`, `.cursor/hooks/confidence-metrics.cjs`; needs Node on PATH & hook enable in Cursor. |
 | 2026-05-04 | Quoting: per-part **Markup %** column (tier blur-suggest; user override; cleared ⇒ 0%); TRUCK/DISPATCH charge label; `gatherFormData` + internal view synced | HIGH | T4 | Sonnet-class | 82 | **`index.html`**, roadmap §5.1; invoice tool still tier-only unless extended. |
+| 2026-05-04 | Policy: `.cursorrules` §4 mandates **STOP** after §6B + model picker recommendation until gate phrase confirmed; dossier §6B cross-ref | LOW | T1 | Composer | 94 | Applies to Cursor agents using this workspace; compliance is instructional, not enforced by Cursor OS. |
