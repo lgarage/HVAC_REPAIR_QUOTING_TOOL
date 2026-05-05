@@ -231,7 +231,7 @@
       /* --- Parts Entry Layout --- */
       .parts-grid-layout {
         display: grid;
-        grid-template-columns: 60px 1fr 110px 120px 110px 120px 40px;
+        grid-template-columns: 60px 1fr 100px 100px 100px 100px 76px 40px;
         gap: 10px;
         align-items: center;
       }
@@ -1709,7 +1709,7 @@
                 />
               </div>
               <div class="input-group">
-                <label>Truck Charge $</label>
+                <label>TRUCK / DISPATCH CHARGE $</label>
                 <input
                   type="number"
                   id="truckChargeInput"
@@ -1727,6 +1727,9 @@
                 <label>QTY</label><label>Part Description</label
                 ><label>Part Number</label><label>Vendor</label
                 ><label>Lead Time (Days)</label><label>Our Cost $</label
+                ><label
+                  title="Suggested from markup tier after you enter Our Cost — editable or clear for 0% markup"
+                  >Markup %</label
                 ><label></label>
               </div>
             </div>
@@ -2940,6 +2943,7 @@
 
         setDates();
         addPartRow();
+        wireQuotePartsDelegates();
         setNextQuoteNumber();
         renderQuoteHistory();
         updateCustomerDatalist();
@@ -4509,7 +4513,7 @@
 
         document.getElementById("partsContainer").innerHTML = `
             <div class="parts-grid-layout part-header-row">
-                <label>QTY</label><label>Part Description</label><label>Part Number</label><label>Vendor</label><label>Lead Time (Days)</label><label>Our Cost $</label><label></label>
+                <label>QTY</label><label>Part Description</label><label>Part Number</label><label>Vendor</label><label>Lead Time (Days)</label><label>Our Cost $</label><label title="Suggested from markup tier after you enter Our Cost — editable or clear for 0% markup">Markup %</label><label></label>
             </div>`;
         addPartRow();
         setDates();
@@ -4572,10 +4576,70 @@
                 <input type="text" placeholder="Optional" class="p-num">
                 <input type="text" placeholder="Vendor" class="p-vendor text-uppercase">
                 <input type="text" placeholder="e.g. 3" class="p-lead" value="N/A">
-                <div class="cost-wrapper"><span>$</span><input type="number" placeholder="0.00" class="p-cost" step="0.01" min="0"></div>
+                <div class="cost-wrapper"><span>$</span><input type="number" placeholder="0.00" class="p-cost" step="0.01"></div>
+                <input type="number" placeholder="tier" step="any" title="Suggested from markup tier when you blur Our Cost; editable; clear after editing for no markup." class="p-markup">
                 <div style="text-align: right;"><button class="remove-part-btn" onclick="this.parentElement.parentElement.remove(); triggerQuoteAutoSave();">X</button></div>
             `;
         container.appendChild(row);
+      }
+
+      function markupTierMultiplierForCost(costBasis) {
+        const c = Number(costBasis);
+        return getMarkupPercentage(Number.isFinite(c) ? Math.abs(c) : 0);
+      }
+
+      function suggestedMarkupPctRounded(costBasis) {
+        return Math.round(markupTierMultiplierForCost(costBasis) * 100);
+      }
+
+      function maybeFillSuggestedMarkupPercent(reRow) {
+        const mc = reRow.querySelector(".p-cost");
+        const mm = reRow.querySelector(".p-markup");
+        if (!mc || !mm || mm.value.trim() !== "") return;
+        const c = parseFloat(mc.value);
+        if (!Number.isFinite(c)) return;
+        mm.value = String(suggestedMarkupPctRounded(c));
+      }
+
+      function stringifyMarkupPctForSave(pctDisplay) {
+        if (!Number.isFinite(pctDisplay)) return "0";
+        const r = Math.round(pctDisplay);
+        if (Math.abs(pctDisplay - r) < 1e-6) return String(r);
+        return String(Number(Number(pctDisplay).toFixed(2)));
+      }
+
+      /** One-time listeners on document.body (#partsContainer is rebuilt often). */
+      function wireQuotePartsDelegates() {
+        if (document.body.dataset.quotePartsDelegated === "1") return;
+        document.body.dataset.quotePartsDelegated = "1";
+        document.body.addEventListener(
+          "blur",
+          (e) => {
+            if (!e.target.classList.contains("p-cost")) return;
+            const pc = document.getElementById("partsContainer");
+            if (!pc || !pc.contains(e.target)) return;
+            const reRow = e.target.closest(".part-entry-line");
+            if (!reRow || reRow.dataset.markupUserEdited === "1") return;
+            maybeFillSuggestedMarkupPercent(reRow);
+            if (typeof triggerQuoteAutoSave === "function")
+              triggerQuoteAutoSave();
+          },
+          true,
+        );
+        document.body.addEventListener("input", (e) => {
+          const pc = document.getElementById("partsContainer");
+          if (
+            !pc ||
+            !e.target.closest ||
+            !e.target.closest("#partsContainer .part-entry-line")
+          )
+            return;
+          if (e.target.classList.contains("p-markup")) {
+            const r = e.target.closest(".part-entry-line");
+            if (r) r.dataset.markupUserEdited = "1";
+          }
+          if (typeof triggerQuoteAutoSave === "function") triggerQuoteAutoSave();
+        });
       }
 
       function getMarkupPercentage(cost) {
@@ -4612,7 +4676,29 @@
             .toUpperCase();
 
           if (!isNaN(cost) && desc !== "") {
-            const markupMultiplier = getMarkupPercentage(cost);
+            const markupField = row.querySelector(".p-markup");
+            const markupStr = markupField ? markupField.value.trim() : "";
+            const tierM = markupTierMultiplierForCost(cost);
+            let markupMultiplier;
+            let pctDisplay;
+            if (markupStr === "") {
+              if (row.dataset.markupUserEdited === "1") {
+                markupMultiplier = 0;
+                pctDisplay = 0;
+              } else {
+                markupMultiplier = tierM;
+                pctDisplay = Math.round(tierM * 100);
+              }
+            } else {
+              const pv = parseFloat(markupStr);
+              if (!Number.isFinite(pv)) {
+                markupMultiplier = 0;
+                pctDisplay = 0;
+              } else {
+                markupMultiplier = pv / 100;
+                pctDisplay = pv;
+              }
+            }
             const retailPricePerUnit = cost + cost * markupMultiplier;
             const totalRetailAmount = retailPricePerUnit * qty;
             partsRetailSubtotal += totalRetailAmount;
@@ -4625,7 +4711,7 @@
                 row.querySelector(".p-lead").value.trim().toUpperCase() ||
                 "N/A",
               cost,
-              markupPercent: (markupMultiplier * 100).toFixed(0),
+              markupPercent: stringifyMarkupPctForSave(pctDisplay),
               retailUnit: retailPricePerUnit,
               retailTotal: totalRetailAmount,
             });
@@ -4784,7 +4870,7 @@
                     <tbody>
             `;
         data.parts.forEach((p) => {
-          internalHTML += `<tr><td>${p.qty}</td><td>${p.desc} (${p.num})</td><td>${p.vendor || "N/A"}</td><td>${p.lead}</td><td>$${p.cost.toFixed(2)}</td><td>${p.markupPercent}%</td><td>$${p.retailUnit.toFixed(2)}</td><td>$${p.retailTotal.toFixed(2)}</td></tr>`;
+          internalHTML += `<tr><td>${p.qty}</td><td>${p.desc} (${p.num})</td><td>${p.vendor || "N/A"}</td><td>${p.lead}</td><td>$${p.cost.toFixed(2)}</td><td>${String(p.markupPercent ?? "").replace(/%/g, "").trim()}%</td><td>$${p.retailUnit.toFixed(2)}</td><td>$${p.retailTotal.toFixed(2)}</td></tr>`;
         });
         internalHTML += `</tbody></table><br><p>Subtotal Retail: <strong>$${data.subtotal.toFixed(2)}</strong></p><p>Tax (5.5%): <strong>$${data.tax.toFixed(2)}</strong></p><p>Grand Total: <span class="grand-total-internal">$${data.grandTotal.toFixed(2)}</span></p>`;
         document.getElementById("internalQuoteContent").innerHTML =
@@ -5067,11 +5153,19 @@
         setQuoteCustomerType(savedType, { silent: true, preserveRate: true });
 
         document.getElementById("partsContainer").innerHTML =
-          `<div class="parts-grid-layout part-header-row"><label>QTY</label><label>Part Description</label><label>Part Number</label><label>Vendor</label><label>Lead Time (Days)</label><label>Our Cost $</label><label></label></div>`;
+          `<div class="parts-grid-layout part-header-row"><label>QTY</label><label>Part Description</label><label>Part Number</label><label>Vendor</label><label>Lead Time (Days)</label><label>Our Cost $</label><label title="Suggested from markup tier after you enter Our Cost — editable or clear for 0% markup">Markup %</label><label></label></div>`;
         quote.parts.forEach((p) => {
           const row = document.createElement("div");
           row.className = "parts-grid-layout part-row part-entry-line";
-          row.innerHTML = `<input type="number" class="p-qty" value="${p.qty}" min="1"><input type="text" class="p-desc" value="${p.desc}"><input type="text" class="p-num" value="${p.num}"><input type="text" class="p-vendor text-uppercase" value="${p.vendor || ""}"><input type="text" class="p-lead" value="${p.lead}"><div class="cost-wrapper"><span>$</span><input type="number" class="p-cost" step="0.01" value="${p.cost}"></div><div style="text-align: right;"><button class="remove-part-btn" onclick="this.parentElement.parentElement.remove(); triggerQuoteAutoSave();">X</button></div>`;
+          let mpDisp = "";
+          if (p.markupPercent != null && String(p.markupPercent).trim() !== "") {
+            const n = parseFloat(String(p.markupPercent).replace(/%/g, ""));
+            if (Number.isFinite(n)) mpDisp = String(n);
+          }
+          const mpValAttr =
+            mpDisp !== "" ? ` value="${mpDisp.replace(/"/g, "&quot;")}"` : "";
+          row.innerHTML = `<input type="number" class="p-qty" value="${p.qty}" min="1"><input type="text" class="p-desc" value="${p.desc}"><input type="text" class="p-num" value="${p.num}"><input type="text" class="p-vendor text-uppercase" value="${p.vendor || ""}"><input type="text" class="p-lead" value="${p.lead}"><div class="cost-wrapper"><span>$</span><input type="number" class="p-cost" step="0.01" value="${p.cost}"></div><input type="number" step="any" placeholder="tier" title="Suggested from markup tier when you blur Our Cost; editable; clear for no markup after editing." class="p-markup"${mpValAttr}><div style="text-align: right;"><button class="remove-part-btn" onclick="this.parentElement.parentElement.remove(); triggerQuoteAutoSave();">X</button></div>`;
+          row.dataset.markupUserEdited = mpDisp !== "" ? "1" : "0";
           document.getElementById("partsContainer").appendChild(row);
         });
 

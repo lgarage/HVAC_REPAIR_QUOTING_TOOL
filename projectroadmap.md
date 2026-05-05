@@ -73,7 +73,7 @@ All three form views share a common customer-lookup system (`customerNamesList` 
   quoteDate, dueDate,
   customerType,          // "Residential" | "Commercial"  (added Apr 2026)
   laborHours, laborRate, truckCharge, totalLaborAmount,
-  parts: [ { qty, desc, num, vendor, lead, cost, markupPercent, retailUnit, retailTotal } ],
+  parts: [ { qty, desc, num, vendor, lead, cost, markupPercent (% string — suggested from tier but user-editable; stored as applied), retailUnit, retailTotal } ],
   subtotal, tax, grandTotal
 }
 ```
@@ -90,12 +90,14 @@ Invoices saved by `saveAndPrintInvoice()` in `invoice.js` are also written to a 
 
 Defined in **two identical functions** kept in sync so quotes and invoices price parts the same way:
 
-- `getMarkupPercentage(cost)` — used by the Quoting Tool.
+- `getMarkupPercentage(cost)` — default tier markup for the Quoting Tool when **`Markup %`** is resolved automatically (blur-suggestion + **`gatherFormData()`** fallback for blank, non-user-edited rows).
 - `getInvoiceMarkup(cost)` — used by `invoice.js` via the Invoicing Tool.
 
 Both return a **decimal multiplier** that the caller applies as `retail = cost + (cost * markup)` (equivalently a `1 + markup` multiplier).
 
-**Updated Apr 2026** — smoother curve, more high-cost tiers:
+**Quoting Tool (May 2026):** Section 4’s parts grid includes an editable **`Markup %`** column. After **`Our Cost $`** loses focus (and the dispatcher has not overridden markup yet), the field is auto-filled from the tier that matches **`abs(cost)`**. Any manual change to **`Markup %`** locks that row; clearing the percentage after editing applies **no markup** (0%). Leaving **`Markup %`** untouched (never manually edited) on a blank field still resolves to the tier on save/preview—even if **`Our Cost`** was typed without triggering blur—as long as **`data-markup-user-edited`** is unset (new rows).
+
+The **Invoicing Tool** (`invoice.js`) still uses **`getInvoiceMarkup(cost)`** per line with no per-line override field unless extended separately.
 
 | Raw unit cost | Markup | Effective multiplier |
 |---|---|---|
@@ -184,6 +186,8 @@ The CSS that makes this work is the `.document-print-view` / `.document-print-vi
 ## 10. Build history / completed phases
 
 ### April 2026
+
+- **Quoting Tool — editable parts markup % + truck/dispatch label (May 2026 delivery).** Section 4 parts grid gains **Markup %** (tier-suggested after **`Our Cost $`** blur, user-editable, clear-after-edit ⇒ 0%). `gatherFormData()` uses `markupTierMultiplierForCost` / explicit field; rebates allowed via **`Our Cost`** without HTML `min=0`; Labor section 3 field label **`TRUCK / DISPATCH CHARGE $`**. Body listeners on `document.body` (`wireQuotePartsDelegates()`). Files: **`index.html`**, **`projectroadmap.md`** (`§4`/`§5.1`/build history).
 
 - **`MODEL_DOSSIER.md` added** — Canonical place for Cursor **enabled-models skim** (user-maintained paste from Settings → Models), **T0–T4** archetype map, cheap→**Strong** escalation guidance (Firestore/invoice/money/schema/security → Opus-/Codex-class), **§6B-style opener** reminders, logging norms (**append §5 row** after substantive outcomes; skim/grep log before picker recommendations). Bootstrap outcome row seeded in §5. Files: `MODEL_DOSSIER.md`, this roadmap (`MODEL_DOSSIER.md` row in §2 File layout).
 - **Cursor hooks — empirical composer confidence.** Project hooks `.cursor/hooks.json` run `node .cursor/hooks/confidence-metrics.cjs` on **`stop`** (composer finished with status `completed` increments one assumed-OK tally per Cursor `model` id) and on **`beforeSubmitPrompt`** (if the immediately following user prompt matches a rejection heuristic, increment explicit pushback for that composer model and undo one assumed OK). Persists counters in `.cursor/confidence-metrics.json` and replaces the marked table region in `MODEL_DOSSIER.md` under “Hook-maintained empirical confidence.” Requires Node.js on PATH; edit `FAILURE_HINT_RE` in the script to tune detection. Files: `.cursor/hooks.json`, `.cursor/hooks/confidence-metrics.cjs`, `MODEL_DOSSIER.md`.
