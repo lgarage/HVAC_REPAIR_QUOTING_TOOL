@@ -108,3 +108,5 @@ _Newest rows at bottom._
 | 2026-05-04 | Quoting: per-part **Markup %** column (tier blur-suggest; user override; cleared ⇒ 0%); TRUCK/DISPATCH charge label; `gatherFormData` + internal view synced | HIGH | T4 | Sonnet-class | 82 | **`index.html`**, roadmap §5.1; invoice tool still tier-only unless extended. |
 | 2026-05-04 | Policy: `.cursorrules` §4 mandates **STOP** after §6B + model picker recommendation until gate phrase confirmed; dossier §6B cross-ref | LOW | T1 | Composer | 94 | Applies to Cursor agents using this workspace; compliance is instructional, not enforced by Cursor OS. |
 | 2026-05-04 | Quoting: "Work to be Done" Section 4 (Parts → 5); `workScope` textarea; persisted on quote record; renders above parts on customer PDF + internal view | HIGH | T3 | Sonnet | 86 | `index.html` only; older quotes load fine (field defaults to `""`). |
+| 2026-05-04 | Recent Quotes table: inline **status** `<select>` + `updateQuoteStatusInline`; user approved **Composer-tier** sufficient | LOW | T2 | Composer 2 | 88 | **`index.html`**; roadmap §10 logged. |
+

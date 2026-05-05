@@ -276,6 +276,14 @@
         padding: 8px;
         width: 100%;
       }
+      .quote-history-status-select {
+        border: 1px solid #c8d4e8;
+        border-radius: 4px;
+        padding: 6px 4px;
+        background: #fff;
+        cursor: pointer;
+        color: #0a3161;
+      }
 
       /* --- Action Buttons --- */
       .action-bar {
@@ -2041,7 +2049,7 @@
             refreshes and shutdowns. Use <strong>Export Backup</strong> to
             download a safety copy or move quotes to another computer.
           </div>
-          <table class="db-table">
+          <table class="db-table" id="recentQuotesDbTable">
             <thead>
               <tr>
                 <th width="80">Preview</th>
@@ -2988,6 +2996,7 @@
         addPartRow();
         wireQuotePartsDelegates();
         setNextQuoteNumber();
+        wireRecentQuotesInlineStatus();
         renderQuoteHistory();
         updateCustomerDatalist();
 
@@ -5068,6 +5077,83 @@
         return true;
       }
 
+      function escapeHtmlQuotes(s) {
+        return String(s ?? "")
+          .replace(/&/g, "&amp;")
+          .replace(/"/g, "&quot;")
+          .replace(/</g, "&lt;");
+      }
+
+      function buildQuoteHistoryStatusDropdownHtml(selectedValue, quoteId) {
+        const tmpl = document.getElementById("quoteStatusInput");
+        if (!tmpl || !quoteId) return escapeHtmlQuotes(String(selectedValue ?? ""));
+        const sv = selectedValue ?? "Pending";
+        const statuses = [...tmpl.options].map((o) => o.value);
+        const matched = statuses.includes(sv);
+        let optHtml = "";
+        for (let i = 0; i < tmpl.options.length; i++) {
+          const o = tmpl.options[i];
+          const sel = matched && o.value === sv;
+          optHtml +=
+            `<option value="${escapeHtmlQuotes(o.value)}"` +
+            (sel ? " selected>" : ">") +
+            `${escapeHtmlQuotes(o.textContent)}</option>`;
+        }
+        if (!matched && String(sv).trim() !== "") {
+          optHtml =
+            `<option value="${escapeHtmlQuotes(sv)}" selected>${escapeHtmlQuotes(sv)}</option>` +
+            optHtml;
+        }
+        return (
+          `<select class="quote-history-status-select" data-quote-id="${escapeHtmlQuotes(quoteId)}" title="Quick status update" style="font-size:12px;width:100%;max-width:180px;text-align:center;">` +
+          optHtml +
+          `</select>`
+        );
+      }
+
+      function wireRecentQuotesInlineStatus() {
+        const tbl = document.getElementById("recentQuotesDbTable");
+        if (!tbl || tbl.dataset.quoteStatusDelegated === "1") return;
+        tbl.dataset.quoteStatusDelegated = "1";
+        tbl.addEventListener("change", (e) => {
+          const tgt = e.target;
+          if (
+            !tgt ||
+            tgt.tagName !== "SELECT" ||
+            !tgt.classList.contains("quote-history-status-select")
+          )
+            return;
+          const qid = tgt.getAttribute("data-quote-id");
+          if (!qid) return;
+          updateQuoteStatusInline(qid, tgt.value);
+        });
+      }
+
+      function updateQuoteStatusInline(quoteId, newStatus) {
+        let db = JSON.parse(
+          localStorage.getItem("twinPillarsQuotesDB") || "[]",
+        );
+        const idx = db.findIndex((q) => q.id === quoteId);
+        if (idx === -1) return;
+        const quote = db[idx];
+        if (quote.status === newStatus) return;
+        quote.status = newStatus;
+        // Match main form behaviour: workflow only meaningful when Approved
+        if (newStatus !== "Approved") quote.jobWorkflow = "N/A";
+        db[idx] = quote;
+        localStorage.setItem("twinPillarsQuotesDB", JSON.stringify(db));
+        renderQuoteHistory();
+
+        const curId = document.getElementById("currentQuoteId").value;
+        if (curId === quoteId) {
+          document.getElementById("quoteStatusInput").value = newStatus;
+          handleQuoteStatusChange();
+        }
+        showSaveCue(
+          `✓ Status updated — ${quote.quoteNum || "Quote"} → ${newStatus}`,
+        );
+      }
+
       function renderQuoteHistory() {
         let db = JSON.parse(
           localStorage.getItem("twinPillarsQuotesDB") || "[]",
@@ -5090,13 +5176,10 @@
           else if (workflowText)
             workflowText = `<span style="color:#555; font-weight:bold;">${workflowText}</span>`;
 
-          let statusColor = "#333";
-          if (quote.status === "Pending") statusColor = "#f39c12";
-          if (quote.status === "Approved") statusColor = "#27ae60";
-          if (quote.status === "Rejected") statusColor = "#7f8c8d";
-          if (quote.status === "Requote Requested") statusColor = "#8e44ad";
-
-          let statusText = `<strong style="color:${statusColor}; font-size:13px;">${quote.status}</strong>`;
+          const statusControl = buildQuoteHistoryStatusDropdownHtml(
+            quote.status || "Pending",
+            quote.id,
+          );
           let tableLoc = quote.locationAddress;
           let subLocStr = "";
           if (quote.custCity) subLocStr += quote.custCity + ", ";
@@ -5126,7 +5209,7 @@
                         <td>${tableLoc}</td>
                         <td>$${quote.grandTotal.toFixed(2)}</td>
                         <td>${workflowText}</td>
-                        <td style="text-align: center;">${statusText}</td>
+                        <td style="text-align: center;">${statusControl}</td>
                         <td>
                             <button class="resubmit-btn" onclick="resubmitQuote('${quote.id}')" title="Clone this quote as a brand-new record with a fresh QT number. You will be asked whether to rebrand it to USA Heating &amp; Cooling (default) or keep the legacy Twin Pillars schema for a resubmitted job. The original quote stays untouched in the database.">↻ Resubmit</button>
                             ${refactorBtn}
