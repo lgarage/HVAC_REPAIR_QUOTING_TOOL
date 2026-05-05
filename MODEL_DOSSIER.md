@@ -50,6 +50,26 @@ Use **§1** when filled; otherwise this table is the **default** fallback. **Ref
 
 ---
 
+## Hook-maintained empirical confidence
+
+**Automatic updates.** Cursor project hooks bump scores in `MODEL_DOSSIER.md` after each composer run completes and when you send your **next** user message:
+
+- **`stop`** (status `completed`): adds **one implicit OK** count for that run’s **`model`** string (silent acceptance — you moved on).
+- **`beforeSubmitPrompt`**: if that next message reads like rejection of the last result (regex in `.cursor/hooks/confidence-metrics.cjs`), increments **explicit pushback** and **subtracts one** implicit OK for the model that answered last time.
+
+State file: `.cursor/confidence-metrics.json`. Requires **Node** on `PATH`. Configure hooks via `.cursor/hooks.json` (restart Cursor after edits if hooks do not appear).
+
+Tune false positives / misses by editing `FAILURE_HINT_RE` in `.cursor/hooks/confidence-metrics.cjs`.
+
+<!-- HOOK_CONFIDENCE_TABLE_START -->
+
+| _(no hook samples yet)_ | — | — | — |
+
+<!-- HOOK_CONFIDENCE_TABLE_END -->
+
+---
+
+
 ## §6B-style opener (before substantive implementation)
 
 Each implementation turn should briefly state:
@@ -67,6 +87,8 @@ Each implementation turn should briefly state:
 
 **Append** exactly **one row** to **§5** when the turn produced **substantive** artifact worth remembering: behavior change, invoice/Firestore/quote math touch, notable bug fix, or durable doc/policy change.
 
+**Hook-maintained empirical confidence** above is **automatic counter tallies**, not substitutes for qualitative §5 notes.
+
 **Skip** logging when: idle chat only; trivial answer with no artifact; duplicate of an existing §5 row for the same change; or pure meta/policy echo with nothing new to reconcile.
 
 Before recommending a picker for “have we solved this shape before?” issues, **`grep`** §5 (and codebase) rather than improvising confidence from memory.
@@ -80,3 +102,4 @@ _Newest rows at bottom._
 | Date (UTC) | Task summary | Classification | Archetype | Recommended model | Conf % | Outcome / notes |
 |------------|--------------|----------------|-----------|-------------------|--------|-----------------|
 | 2026-05-04 | Initialize MODEL_DOSSIER: §1 skim placeholder, archetypes §2–§3, §6B + logging norms §4, bootstrap §5 | LOW | T1 | Composer 2 | 90 | Repo root dossier authored; roadmap §2 mentions file. User must paste §1 from Settings → Models. |
+| 2026-05-04 | Cursor hooks auto-update empirical model confidence (`stop` implicit OK / `beforeSubmitPrompt` regex pushback → rewrite § hook table + `.cursor/confidence-metrics.json`) | LOW | T2 | Sonnet-class | 85 | Ships `.cursor/hooks.json`, `.cursor/hooks/confidence-metrics.cjs`; needs Node on PATH & hook enable in Cursor. |
