@@ -4896,6 +4896,7 @@
           partsSummaryDesc: document.getElementById("partsSummaryDescInput").value.trim(),
           totalLaborAmount,
           parts: partsData,
+          partsRetailSubtotal,
           subtotal,
           tax,
           grandTotal,
@@ -5030,27 +5031,34 @@
         }
 
         // Customer-facing SERVICE & DISPATCH FEE rendering:
-        //   showTruckToCustomer ON  → SERVICE & DISPATCH FEE line is visible
-        //   showTruckToCustomer OFF → no service/labor/truck line shown at all;
-        //                             the amount is still in subtotal/total
-        if (data.showTruckToCustomer) {
-          const serviceTotal =
-            (data.totalLaborAmount || 0) + (data.truckCharge || 0);
-          if (serviceTotal > 0) {
-            const serviceRow = document.createElement("tr");
-            serviceRow.innerHTML = `<td>1</td><td>SERVICE &amp; DISPATCH FEE</td><td>N/A</td><td>$${serviceTotal.toFixed(2)}</td><td>$${serviceTotal.toFixed(2)}</td>`;
-            tableBody.appendChild(serviceRow);
-          }
+        //   showTruckToCustomer ON  → SERVICE & DISPATCH FEE line is visible;
+        //                             subtotal includes it as normal
+        //   showTruckToCustomer OFF → fee is hidden; customer subtotal only
+        //                             shows parts total; labor/truck are silently
+        //                             absorbed so the printed numbers are consistent
+        const serviceFee = (data.totalLaborAmount || 0) + (data.truckCharge || 0);
+        if (data.showTruckToCustomer && serviceFee > 0) {
+          const serviceRow = document.createElement("tr");
+          serviceRow.innerHTML = `<td>1</td><td>SERVICE &amp; DISPATCH FEE</td><td>N/A</td><td>$${serviceFee.toFixed(2)}</td><td>$${serviceFee.toFixed(2)}</td>`;
+          tableBody.appendChild(serviceRow);
         }
 
+        // When the fee is hidden, display subtotal = parts only (no unexplained gap).
+        // When the fee is shown, display subtotal = full subtotal (parts + labor + truck).
+        const displaySubtotal = data.showTruckToCustomer
+          ? data.subtotal
+          : data.partsRetailSubtotal;
+        const displayTax = data.showTax ? displaySubtotal * 0.055 : 0;
+        const displayGrand = displaySubtotal + displayTax;
+
         document.getElementById("printSubtotal").innerText =
-          `$${data.subtotal.toFixed(2)}`;
+          `$${displaySubtotal.toFixed(2)}`;
         document.getElementById("printTax").innerText =
-          `$${data.tax.toFixed(2)}`;
+          `$${displayTax.toFixed(2)}`;
         document.getElementById("printTaxLine").style.display =
           data.showTax ? "" : "none";
         document.getElementById("printGrandTotal").innerText =
-          `$${data.grandTotal.toFixed(2)}`;
+          `$${displayGrand.toFixed(2)}`;
 
         const wsSection = document.getElementById("printWorkScopeSection");
         const wsText = document.getElementById("printWorkScopeText");
