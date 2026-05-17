@@ -1740,7 +1740,7 @@
             <div style="margin-top:14px; display:flex; flex-direction:column; gap:10px;">
               <label style="font-size:16px; font-weight:bold; color:#0a3161; display:flex; align-items:center; gap:10px; cursor:pointer;">
                 <input type="checkbox" id="showTruckToCustomerInput" style="width:18px; height:18px; cursor:pointer;" />
-                Show Truck Charge as Separate Line to Customer
+                Show SERVICE &amp; DISPATCH FEE as Separate Line Item
               </label>
               <label style="font-size:16px; font-weight:bold; color:#0a3161; display:flex; align-items:center; gap:10px; cursor:pointer;">
                 <input type="checkbox" id="showTaxInput" checked style="width:18px; height:18px; cursor:pointer;" />
@@ -5001,40 +5001,16 @@
           tableBody.appendChild(row);
         });
 
-        // Customer-facing labor / dispatch / truck rendering is layout-aware
-        // AND respects the "show truck to customer" toggle:
-        //   showTruckToCustomer ON  → truck appears as its own line (itemized)
-        //                             or merged into SERVICE & DISPATCH FEE
-        //   showTruckToCustomer OFF → truck amount is folded into the
-        //                             labor/service line so the customer total
-        //                             is correct but no truck line is visible
+        // Customer-facing SERVICE & DISPATCH FEE rendering:
+        //   showTruckToCustomer ON  → SERVICE & DISPATCH FEE line is visible
+        //   showTruckToCustomer OFF → no service/labor/truck line shown at all;
+        //                             the amount is still in subtotal/total
         if (data.showTruckToCustomer) {
-          if (data.customerLayout === "consolidated") {
-            const serviceTotal =
-              (data.totalLaborAmount || 0) + (data.truckCharge || 0);
-            if (serviceTotal > 0) {
-              const serviceRow = document.createElement("tr");
-              serviceRow.innerHTML = `<td>1</td><td>SERVICE &amp; DISPATCH FEE</td><td>N/A</td><td>$${serviceTotal.toFixed(2)}</td><td>$${serviceTotal.toFixed(2)}</td>`;
-              tableBody.appendChild(serviceRow);
-            }
-          } else {
-            if (data.totalLaborAmount > 0) {
-              const laborRow = document.createElement("tr");
-              laborRow.innerHTML = `<td>${data.laborHours}</td><td>REPAIR LABOR</td><td>N/A</td><td></td><td>$${data.totalLaborAmount.toFixed(2)}</td>`;
-              tableBody.appendChild(laborRow);
-            }
-            if (data.truckCharge > 0) {
-              const truckRow = document.createElement("tr");
-              truckRow.innerHTML = `<td>1</td><td>TRUCK / DISPATCH CHARGE</td><td>N/A</td><td></td><td>$${data.truckCharge.toFixed(2)}</td>`;
-              tableBody.appendChild(truckRow);
-            }
-          }
-        } else {
-          const combinedServiceFee =
+          const serviceTotal =
             (data.totalLaborAmount || 0) + (data.truckCharge || 0);
-          if (combinedServiceFee > 0) {
+          if (serviceTotal > 0) {
             const serviceRow = document.createElement("tr");
-            serviceRow.innerHTML = `<td>1</td><td>SERVICE &amp; DISPATCH FEE</td><td>N/A</td><td>$${combinedServiceFee.toFixed(2)}</td><td>$${combinedServiceFee.toFixed(2)}</td>`;
+            serviceRow.innerHTML = `<td>1</td><td>SERVICE &amp; DISPATCH FEE</td><td>N/A</td><td>$${serviceTotal.toFixed(2)}</td><td>$${serviceTotal.toFixed(2)}</td>`;
             tableBody.appendChild(serviceRow);
           }
         }
