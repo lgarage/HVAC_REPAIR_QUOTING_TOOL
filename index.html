@@ -1743,6 +1743,14 @@
                 Show SERVICE &amp; DISPATCH FEE as Separate Line Item
               </label>
               <label style="font-size:16px; font-weight:bold; color:#0a3161; display:flex; align-items:center; gap:10px; cursor:pointer;">
+                <input type="checkbox" id="showItemizedPartsInput" checked style="width:18px; height:18px; cursor:pointer;" onchange="togglePartsSummaryField()" />
+                Show Itemized Parts to Customer
+              </label>
+              <div id="partsSummaryDescWrapper" style="display:none; margin-left:28px;">
+                <label style="font-size:14px; font-weight:normal; color:#333;">Parts Summary Description (shown to customer instead of itemized list)</label>
+                <textarea id="partsSummaryDescInput" rows="2" placeholder="e.g. All parts and materials included for RTU-1 compressor replacement" style="width:100%; resize:vertical; font-family:inherit; font-size:14px; line-height:1.5; margin-top:4px;"></textarea>
+              </div>
+              <label style="font-size:16px; font-weight:bold; color:#0a3161; display:flex; align-items:center; gap:10px; cursor:pointer;">
                 <input type="checkbox" id="showTaxInput" checked style="width:18px; height:18px; cursor:pointer;" />
                 Include Sales Tax (5.5%) on Quote
                 <span style="color:#777; font-weight:normal; font-size:13px;">(uncheck for real property improvements / new construction)</span>
@@ -4586,6 +4594,9 @@
         document.getElementById("truckChargeInput").value = "175.00";
         document.getElementById("showTruckToCustomerInput").checked = false;
         document.getElementById("showTaxInput").checked = true;
+        document.getElementById("showItemizedPartsInput").checked = true;
+        document.getElementById("partsSummaryDescInput").value = "";
+        document.getElementById("partsSummaryDescWrapper").style.display = "none";
         setQuoteCustomerType("Commercial", { silent: true });
         handleQuoteStatusChange();
 
@@ -4619,6 +4630,11 @@
 
       // Pass { preserveRate: true } when restoring a saved record where the
       // dispatcher may have manually overridden the labor rate.
+      function togglePartsSummaryField() {
+        const checked = document.getElementById("showItemizedPartsInput").checked;
+        document.getElementById("partsSummaryDescWrapper").style.display = checked ? "none" : "block";
+      }
+
       function setQuoteCustomerType(type, opts) {
         opts = opts || {};
         if (!CUSTOMER_TYPE_RATES.hasOwnProperty(type)) type = "Commercial";
@@ -4876,6 +4892,8 @@
           truckCharge,
           showTruckToCustomer: document.getElementById("showTruckToCustomerInput").checked,
           showTax: document.getElementById("showTaxInput").checked,
+          showItemizedParts: document.getElementById("showItemizedPartsInput").checked,
+          partsSummaryDesc: document.getElementById("partsSummaryDescInput").value.trim(),
           totalLaborAmount,
           parts: partsData,
           subtotal,
@@ -4993,13 +5011,23 @@
         const tableBody = document.getElementById("printTableBody");
         tableBody.innerHTML = "";
 
-        // Parts are itemized in BOTH layouts — that part is unchanged.
-        data.parts.forEach((p) => {
-          const row = document.createElement("tr");
-          const descHtml = escapeHtmlQuotes(p.desc).replace(/\n/g, "<br>");
-          row.innerHTML = `<td>${p.qty}</td><td style="white-space:pre-wrap;">${descHtml}</td><td>${p.lead}</td><td>$${p.retailUnit.toFixed(2)}</td><td>$${p.retailTotal.toFixed(2)}</td>`;
-          tableBody.appendChild(row);
-        });
+        // Parts rendering respects the showItemizedParts toggle:
+        //   ON  → each part gets its own row (current behavior)
+        //   OFF → one summary row with custom description + combined retail total
+        if (data.showItemizedParts) {
+          data.parts.forEach((p) => {
+            const row = document.createElement("tr");
+            const descHtml = escapeHtmlQuotes(p.desc).replace(/\n/g, "<br>");
+            row.innerHTML = `<td>${p.qty}</td><td style="white-space:pre-wrap;">${descHtml}</td><td>${p.lead}</td><td>$${p.retailUnit.toFixed(2)}</td><td>$${p.retailTotal.toFixed(2)}</td>`;
+            tableBody.appendChild(row);
+          });
+        } else {
+          const combinedRetail = data.parts.reduce((sum, p) => sum + p.retailTotal, 0);
+          const summaryDesc = escapeHtmlQuotes(data.partsSummaryDesc || "Parts & Materials");
+          const summaryRow = document.createElement("tr");
+          summaryRow.innerHTML = `<td>1</td><td style="white-space:pre-wrap;">${summaryDesc}</td><td>N/A</td><td>$${combinedRetail.toFixed(2)}</td><td>$${combinedRetail.toFixed(2)}</td>`;
+          tableBody.appendChild(summaryRow);
+        }
 
         // Customer-facing SERVICE & DISPATCH FEE rendering:
         //   showTruckToCustomer ON  → SERVICE & DISPATCH FEE line is visible
@@ -5303,6 +5331,10 @@
         document.getElementById("truckChargeInput").value = quote.truckCharge;
         document.getElementById("showTruckToCustomerInput").checked = !!quote.showTruckToCustomer;
         document.getElementById("showTaxInput").checked = quote.showTax !== false;
+        const showItemized = quote.showItemizedParts !== false;
+        document.getElementById("showItemizedPartsInput").checked = showItemized;
+        document.getElementById("partsSummaryDescInput").value = quote.partsSummaryDesc || "";
+        document.getElementById("partsSummaryDescWrapper").style.display = showItemized ? "none" : "block";
 
         // Restore the customer-type toggle. If the saved record has no
         // customerType (older quotes), infer from the stored labor rate.
