@@ -233,7 +233,17 @@
         display: grid;
         grid-template-columns: 60px 1fr 100px 100px 100px 100px 76px 40px;
         gap: 10px;
-        align-items: center;
+        align-items: start;
+      }
+      .parts-grid-layout textarea.p-desc {
+        resize: vertical;
+        min-height: 32px;
+        max-height: 120px;
+        font-family: inherit;
+        font-size: inherit;
+        line-height: 1.4;
+        padding: 5px 8px;
+        box-sizing: border-box;
       }
       .inv-parts-grid-layout {
         display: grid;
@@ -833,7 +843,7 @@
       .print-table td:last-child,
       .print-table th:last-child {
         text-align: right;
-        width: 120px;
+        width: 90px;
       }
 
       .total-box-wrapper {
@@ -1724,6 +1734,20 @@
                   value="175.00"
                   step="0.01"
                 />
+                <label style="margin-top:6px; font-size:12px; display:flex; align-items:center; gap:6px; cursor:pointer;">
+                  <input type="checkbox" id="showTruckToCustomerInput" />
+                  Show truck charge as separate line to customer
+                </label>
+              </div>
+            </div>
+
+            <div class="form-row" style="margin-top:6px;">
+              <div class="input-group" style="width:100%;">
+                <label style="font-size:12px; display:flex; align-items:center; gap:6px; cursor:pointer;">
+                  <input type="checkbox" id="showTaxInput" checked />
+                  Include Sales Tax (5.5%) on quote
+                  <span style="color:#777; font-weight:normal; font-size:11px;">(uncheck for real property improvements / new construction)</span>
+                </label>
               </div>
             </div>
           </div>
@@ -1871,9 +1895,9 @@
                 <tr>
                   <th width="50">QTY</th>
                   <th>Description</th>
-                  <th width="140">Lead Time (Days)</th>
-                  <th width="100">Unit Price</th>
-                  <th width="100">Amount</th>
+                  <th width="80">Lead Time</th>
+                  <th width="90">Unit Price</th>
+                  <th width="90">Amount</th>
                 </tr>
               </thead>
               <tbody id="printTableBody"></tbody>
@@ -1884,7 +1908,7 @@
                 <div class="total-line">
                   <span>Subtotal</span> <span id="printSubtotal">$0.00</span>
                 </div>
-                <div class="total-line">
+                <div class="total-line" id="printTaxLine">
                   <span>Sales Tax (5.5%)</span> <span id="printTax">$0.00</span>
                 </div>
                 <div class="final-total total-line">
@@ -4561,6 +4585,9 @@
         document.getElementById("newRequoteNote").value = "";
         document.getElementById("workScopeInput").value = "";
         document.getElementById("laborHoursInput").value = "1.0";
+        document.getElementById("truckChargeInput").value = "175.00";
+        document.getElementById("showTruckToCustomerInput").checked = false;
+        document.getElementById("showTaxInput").checked = true;
         setQuoteCustomerType("Commercial", { silent: true });
         handleQuoteStatusChange();
 
@@ -4625,7 +4652,7 @@
         row.className = "parts-grid-layout part-row part-entry-line";
         row.innerHTML = `
                 <input type="number" placeholder="QTY" class="p-qty" value="1" min="1">
-                <input type="text" placeholder="e.g. FILTER, MOTOR" class="p-desc">
+                <textarea rows="1" placeholder="e.g. FILTER, MOTOR" class="p-desc"></textarea>
                 <input type="text" placeholder="Optional" class="p-num">
                 <input type="text" placeholder="Vendor" class="p-vendor text-uppercase">
                 <input type="text" placeholder="e.g. 3" class="p-lead" value="N/A">
@@ -4772,7 +4799,8 @@
         });
 
         const subtotal = partsRetailSubtotal + totalLaborAmount + truckCharge;
-        const tax = subtotal * 0.055;
+        const showTax = document.getElementById("showTaxInput").checked;
+        const tax = showTax ? subtotal * 0.055 : 0;
         const grandTotal = subtotal + tax;
 
         return {
@@ -4848,6 +4876,8 @@
           laborHours,
           laborRate,
           truckCharge,
+          showTruckToCustomer: document.getElementById("showTruckToCustomerInput").checked,
+          showTax: document.getElementById("showTaxInput").checked,
           totalLaborAmount,
           parts: partsData,
           subtotal,
@@ -4925,9 +4955,13 @@
                     <tbody>
             `;
         data.parts.forEach((p) => {
-          internalHTML += `<tr><td>${p.qty}</td><td>${p.desc} (${p.num})</td><td>${p.vendor || "N/A"}</td><td>${p.lead}</td><td>$${p.cost.toFixed(2)}</td><td>${String(p.markupPercent ?? "").replace(/%/g, "").trim()}%</td><td>$${p.retailUnit.toFixed(2)}</td><td>$${p.retailTotal.toFixed(2)}</td></tr>`;
+          const intDescHtml = escapeHtmlQuotes(p.desc).replace(/\n/g, "<br>");
+          internalHTML += `<tr><td>${p.qty}</td><td style="white-space:pre-wrap;">${intDescHtml} (${escapeHtmlQuotes(p.num)})</td><td>${escapeHtmlQuotes(p.vendor) || "N/A"}</td><td>${p.lead}</td><td>$${p.cost.toFixed(2)}</td><td>${String(p.markupPercent ?? "").replace(/%/g, "").trim()}%</td><td>$${p.retailUnit.toFixed(2)}</td><td>$${p.retailTotal.toFixed(2)}</td></tr>`;
         });
-        internalHTML += `</tbody></table><br><p>Subtotal Retail: <strong>$${data.subtotal.toFixed(2)}</strong></p><p>Tax (5.5%): <strong>$${data.tax.toFixed(2)}</strong></p><p>Grand Total: <span class="grand-total-internal">$${data.grandTotal.toFixed(2)}</span></p>`;
+        const taxDisplay = data.showTax
+          ? `Tax (5.5%): <strong>$${data.tax.toFixed(2)}</strong>`
+          : `Tax: <strong>N/A — included in pricing</strong>`;
+        internalHTML += `</tbody></table><br><p>Subtotal Retail: <strong>$${data.subtotal.toFixed(2)}</strong></p><p>${taxDisplay}</p><p>Grand Total: <span class="grand-total-internal">$${data.grandTotal.toFixed(2)}</span></p>`;
         document.getElementById("internalQuoteContent").innerHTML =
           internalHTML;
 
@@ -4964,37 +4998,46 @@
         // Parts are itemized in BOTH layouts — that part is unchanged.
         data.parts.forEach((p) => {
           const row = document.createElement("tr");
-          row.innerHTML = `<td>${p.qty}</td><td>${p.desc}</td><td>${p.lead}</td><td>$${p.retailUnit.toFixed(2)}</td><td>$${p.retailTotal.toFixed(2)}</td>`;
+          const descHtml = escapeHtmlQuotes(p.desc).replace(/\n/g, "<br>");
+          row.innerHTML = `<td>${p.qty}</td><td style="white-space:pre-wrap;">${descHtml}</td><td>${p.lead}</td><td>$${p.retailUnit.toFixed(2)}</td><td>$${p.retailTotal.toFixed(2)}</td>`;
           tableBody.appendChild(row);
         });
 
-        // Customer-facing labor / dispatch / truck rendering is layout-aware:
-        //   "consolidated" (default for net-new quotes from 2026-04-30 onward):
-        //       merge labor + truck into a single SERVICE & DISPATCH FEE row
-        //       so the customer never sees the labor breakdown.
-        //   "itemized" (legacy — any quote saved BEFORE the rollout, plus
-        //       imported backups without the field): show separate REPAIR
-        //       LABOR and TRUCK / DISPATCH CHARGE rows exactly as the
-        //       customer originally received them.
-        // Subtotal / tax / grand total are identical either way.
-        if (data.customerLayout === "consolidated") {
-          const serviceTotal =
-            (data.totalLaborAmount || 0) + (data.truckCharge || 0);
-          if (serviceTotal > 0) {
-            const serviceRow = document.createElement("tr");
-            serviceRow.innerHTML = `<td>1</td><td>SERVICE &amp; DISPATCH FEE</td><td>N/A</td><td>$${serviceTotal.toFixed(2)}</td><td>$${serviceTotal.toFixed(2)}</td>`;
-            tableBody.appendChild(serviceRow);
+        // Customer-facing labor / dispatch / truck rendering is layout-aware
+        // AND respects the "show truck to customer" toggle:
+        //   showTruckToCustomer ON  → truck appears as its own line (itemized)
+        //                             or merged into SERVICE & DISPATCH FEE
+        //   showTruckToCustomer OFF → truck amount is folded into the
+        //                             labor/service line so the customer total
+        //                             is correct but no truck line is visible
+        if (data.showTruckToCustomer) {
+          if (data.customerLayout === "consolidated") {
+            const serviceTotal =
+              (data.totalLaborAmount || 0) + (data.truckCharge || 0);
+            if (serviceTotal > 0) {
+              const serviceRow = document.createElement("tr");
+              serviceRow.innerHTML = `<td>1</td><td>SERVICE &amp; DISPATCH FEE</td><td>N/A</td><td>$${serviceTotal.toFixed(2)}</td><td>$${serviceTotal.toFixed(2)}</td>`;
+              tableBody.appendChild(serviceRow);
+            }
+          } else {
+            if (data.totalLaborAmount > 0) {
+              const laborRow = document.createElement("tr");
+              laborRow.innerHTML = `<td>${data.laborHours}</td><td>REPAIR LABOR</td><td>N/A</td><td></td><td>$${data.totalLaborAmount.toFixed(2)}</td>`;
+              tableBody.appendChild(laborRow);
+            }
+            if (data.truckCharge > 0) {
+              const truckRow = document.createElement("tr");
+              truckRow.innerHTML = `<td>1</td><td>TRUCK / DISPATCH CHARGE</td><td>N/A</td><td></td><td>$${data.truckCharge.toFixed(2)}</td>`;
+              tableBody.appendChild(truckRow);
+            }
           }
         } else {
-          if (data.totalLaborAmount > 0) {
-            const laborRow = document.createElement("tr");
-            laborRow.innerHTML = `<td>${data.laborHours}</td><td>REPAIR LABOR</td><td>N/A</td><td></td><td>$${data.totalLaborAmount.toFixed(2)}</td>`;
-            tableBody.appendChild(laborRow);
-          }
-          if (data.truckCharge > 0) {
-            const truckRow = document.createElement("tr");
-            truckRow.innerHTML = `<td>1</td><td>TRUCK / DISPATCH CHARGE</td><td>N/A</td><td></td><td>$${data.truckCharge.toFixed(2)}</td>`;
-            tableBody.appendChild(truckRow);
+          const combinedServiceFee =
+            (data.totalLaborAmount || 0) + (data.truckCharge || 0);
+          if (combinedServiceFee > 0) {
+            const serviceRow = document.createElement("tr");
+            serviceRow.innerHTML = `<td>1</td><td>SERVICE &amp; DISPATCH FEE</td><td>N/A</td><td>$${combinedServiceFee.toFixed(2)}</td><td>$${combinedServiceFee.toFixed(2)}</td>`;
+            tableBody.appendChild(serviceRow);
           }
         }
 
@@ -5002,6 +5045,8 @@
           `$${data.subtotal.toFixed(2)}`;
         document.getElementById("printTax").innerText =
           `$${data.tax.toFixed(2)}`;
+        document.getElementById("printTaxLine").style.display =
+          data.showTax ? "" : "none";
         document.getElementById("printGrandTotal").innerText =
           `$${data.grandTotal.toFixed(2)}`;
 
@@ -5282,6 +5327,8 @@
         document.getElementById("laborHoursInput").value = quote.laborHours;
         document.getElementById("laborRateInput").value = quote.laborRate;
         document.getElementById("truckChargeInput").value = quote.truckCharge;
+        document.getElementById("showTruckToCustomerInput").checked = !!quote.showTruckToCustomer;
+        document.getElementById("showTaxInput").checked = quote.showTax !== false;
 
         // Restore the customer-type toggle. If the saved record has no
         // customerType (older quotes), infer from the stored labor rate.
@@ -5306,7 +5353,7 @@
           }
           const mpValAttr =
             mpDisp !== "" ? ` value="${mpDisp.replace(/"/g, "&quot;")}"` : "";
-          row.innerHTML = `<input type="number" class="p-qty" value="${p.qty}" min="1"><input type="text" class="p-desc" value="${p.desc}"><input type="text" class="p-num" value="${p.num}"><input type="text" class="p-vendor text-uppercase" value="${p.vendor || ""}"><input type="text" class="p-lead" value="${p.lead}"><div class="cost-wrapper"><span>$</span><input type="number" class="p-cost" step="0.01" value="${p.cost}"></div><input type="number" step="any" placeholder="tier" title="Suggested from markup tier when you blur Our Cost; editable; clear for no markup after editing." class="p-markup"${mpValAttr}><div style="text-align: right;"><button class="remove-part-btn" onclick="this.parentElement.parentElement.remove(); triggerQuoteAutoSave();">X</button></div>`;
+          row.innerHTML = `<input type="number" class="p-qty" value="${p.qty}" min="1"><textarea rows="1" class="p-desc">${escapeHtmlQuotes(p.desc)}</textarea><input type="text" class="p-num" value="${p.num}"><input type="text" class="p-vendor text-uppercase" value="${p.vendor || ""}"><input type="text" class="p-lead" value="${p.lead}"><div class="cost-wrapper"><span>$</span><input type="number" class="p-cost" step="0.01" value="${p.cost}"></div><input type="number" step="any" placeholder="tier" title="Suggested from markup tier when you blur Our Cost; editable; clear for no markup after editing." class="p-markup"${mpValAttr}><div style="text-align: right;"><button class="remove-part-btn" onclick="this.parentElement.parentElement.remove(); triggerQuoteAutoSave();">X</button></div>`;
           row.dataset.markupUserEdited = mpDisp !== "" ? "1" : "0";
           document.getElementById("partsContainer").appendChild(row);
         });
